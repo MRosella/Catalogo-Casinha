@@ -55,9 +55,9 @@ function renderHistory() {
 }
 
 /* limpar: corta tudo até agora em TODOS os aparelhos (meta.logClearedAt, last-write-wins). */
-function clearHistory() {
+async function clearHistory() {
   if (!(state.log && state.log.length)) { toast('Nada no histórico.'); return; }
-  if (!confirm('Limpar o histórico de movimentações? (Some em todos os aparelhos)')) return;
+  if (!await confirmDialog('Limpar o histórico de movimentações? Some em todos os aparelhos.', { okText: 'Limpar', danger: true })) return;
   state.log = [];
   state.meta.logClearedAt = Date.now();
   touchProfile(); saveState();

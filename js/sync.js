@@ -204,8 +204,8 @@ function setupSyncUI() {
     catch (e) { setSyncStatus('Erro: ' + e.message, 'err'); }
   });
   $('sy-now').addEventListener('click', () => { persist(); syncNow(false); });
-  $('sy-clear').addEventListener('click', () => {
-    if (!confirm('Apagar o token e o repositório salvos neste aparelho?\n(Os dados locais permanecem.)')) return;
+  $('sy-clear').addEventListener('click', async () => {
+    if (!await confirmDialog('Apagar o token e o repositório salvos neste aparelho? Os dados locais permanecem.', { okText: 'Apagar', danger: true })) return;
     try { localStorage.removeItem(SYNC_KEY); } catch (e) {}
     $('sy-repo').value = ''; $('sy-token').value = '';
     setSyncStatus('Desconectado deste aparelho.', ''); updateSyncIndicator();

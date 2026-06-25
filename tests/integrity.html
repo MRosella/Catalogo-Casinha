@@ -23,18 +23,18 @@
 </head><body><pre id="out">PENDING</pre>
 <script>
 var checks = {
-  'core':    ['emptyState','loadState','saveState','getCatConfig','grupoDaCategoria','normalizeText','icon','itemsInBox'],
+  'core':    ['emptyState','loadState','saveState','getCatConfig','grupoDaCategoria','normalizeText','icon','itemsInBox','confirmDialog','setupConfirmUI','emptyStateHtml','fmtBytes'],
   'idb':     ['idb','idbGet','idbPut','compressImage','photoFromFile'],
   'suggest': ['suggestBox','boxProfile','sizeCompat','suggestReason'],
-  'boxes':   ['renderBoxes','openBoxModal','saveBox','deleteBox','openBoxDetail','nextBoxCode','boxTitle','setupBoxUI','boxFullness','fillChipHtml'],
-  'items':   ['openItemModal','saveItem','deleteItem','refreshSuggestion','applySuggestion','setupItemUI','toggleItemOut','renderOutToggle'],
+  'boxes':   ['renderBoxes','openBoxModal','saveBox','deleteBox','openBoxDetail','nextBoxCode','boxTitle','setupBoxUI','boxFullness','fillChipHtml','fillBarHtml','openMoveModal','doMoveItems','setupMoveUI'],
+  'items':   ['openItemModal','saveItem','deleteItem','refreshSuggestion','applySuggestion','setupItemUI','toggleItemOut','renderOutToggle','updateLooseRow','openLightbox','setupLightboxUI'],
   'history': ['logEvent','boxLabelById','logText','renderHistory','clearHistory','setupHistoryUI'],
   'scan':    ['scanSupported','startScan','stopScan','parseBoxFromText','setupScanUI'],
   'locate':  ['openLocate','renderLocate','setupLocateUI','populateLocCats','topCategory','locateMatchesHtml','locateSuggestHtml'],
-  'search':  ['searchItems','renderResults','itemCardHtml','setupSearchUI','sortResults','markViewed','recentViewed'],
+  'search':  ['searchItems','renderResults','itemCardHtml','setupSearchUI','sortResults','markViewed','recentViewed','bumpQty','boxChipHtml','qtyStepHtml'],
   'qr':      ['appBaseUrl','boxQrUrl','qrDataUrl','printLabels','labelHtml'],
   'sync':    ['syncNow','mergeDocs','mergeList','mergeLog','currentDoc','applyDoc','setupSyncUI'],
-  'ui':      ['showView','setupNav','populateCategorySelects','populateBoxSelects','renderCatEditor','saveCatEditor','exportBackup','importBackupFile'],
+  'ui':      ['showView','setupNav','populateCategorySelects','populateBoxSelects','renderCatEditor','saveCatEditor','exportBackup','importBackupFile','renderStorage','setupStorageUI'],
   'render':  ['render','updateCounts'],
   'main':    ['init','setupTheme','handleHash','setupServiceWorker','captureDeepLink','consumeDeepLink']
 };

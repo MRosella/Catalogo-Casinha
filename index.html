@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#2f7d4f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -24,24 +24,9 @@
   <title>Catálogo da Casinha</title>
 </head>
 <body>
-  <!-- Menu lateral -->
-  <div class="drawer-backdrop" id="drawer-backdrop"></div>
-  <aside class="drawer" id="drawer" aria-label="Menu de navegação">
-    <div class="drawer-head">
-      <span class="drawer-logo" data-icon="box" data-size="34"></span>
-      <div class="drawer-greet">Catálogo da<br><b>Casinha</b></div>
-    </div>
-    <nav class="drawer-nav">
-      <button class="nav-item active" data-view="buscar"><span class="nav-ic" data-icon="search" data-size="22"></span> Buscar <span class="nav-count" id="count-itens"></span></button>
-      <button class="nav-item" data-view="caixas"><span class="nav-ic" data-icon="box" data-size="22"></span> Caixas <span class="nav-count" id="count-caixas"></span></button>
-      <button class="nav-item" data-view="config"><span class="nav-ic" data-icon="settings" data-size="22"></span> Configurações</button>
-    </nav>
-    <div class="drawer-foot">Catálogo da Casinha<br><span id="ft-version"></span></div>
-  </aside>
-
   <!-- Cabeçalho -->
   <header class="app-header">
-    <button class="icon-btn menu-toggle" id="menu-toggle" aria-label="Menu"><span data-icon="menu" data-size="24"></span></button>
+    <span class="hdr-logo" data-icon="box" data-size="22" aria-hidden="true"></span>
     <div class="title" id="header-title">Buscar</div>
     <div class="spacer"></div>
     <button class="icon-btn sync-ind" id="sync-ind" aria-label="Sincronizar" style="display:none"></button>
@@ -134,9 +119,35 @@
         </div>
       </details>
 
-      <p class="app-footer"><span id="ft-lastsync"></span></p>
+      <details class="card">
+        <summary>Armazenamento <span class="chev">▾</span></summary>
+        <div class="card-body">
+          <p class="hint">Espaço usado neste aparelho. As fotos ficam embutidas no catálogo, então ocupam a maior parte.</p>
+          <div class="store-bar" id="store-bar"><span class="store-fill" id="store-fill"></span></div>
+          <div class="store-txt" id="store-txt">—</div>
+        </div>
+      </details>
+
+      <p class="app-footer"><span id="ft-version"></span> · <span id="ft-lastsync"></span></p>
     </section>
   </main>
+
+  <!-- ============ BARRA DE ABAS (inferior) ============ -->
+  <nav class="tabbar" id="tabbar" aria-label="Navegação">
+    <button class="nav-item tab" data-view="caixas">
+      <span class="tab-ic" data-icon="box" data-size="23"></span>
+      <span class="tab-lbl">Caixas</span>
+      <span class="tab-count" id="count-caixas"></span>
+    </button>
+    <button class="nav-item tab tab-home" data-view="buscar" aria-label="Buscar (início)">
+      <span class="tab-home-btn"><span data-icon="search" data-size="26"></span></span>
+      <span class="tab-count tab-count-home" id="count-itens"></span>
+    </button>
+    <button class="nav-item tab" data-view="config">
+      <span class="tab-ic" data-icon="settings" data-size="23"></span>
+      <span class="tab-lbl">Config</span>
+    </button>
+  </nav>
 
   <!-- ============ MODAL: ITEM ============ -->
   <div class="modal-backdrop" id="item-modal">
@@ -154,6 +165,10 @@
         </div>
       </div>
       <div class="field"><label for="m-box">Caixa</label><select id="m-box"></select></div>
+      <label class="check-row" id="m-loose-row" style="display:none">
+        <input type="checkbox" id="m-loose" />
+        <span>Guardado solto na casinha (sem caixa, de propósito)</span>
+      </label>
       <button type="button" class="suggest-chip" id="m-suggest" style="display:none"></button>
       <button type="button" class="hist-btn m-out-btn" id="m-out" style="display:none"></button>
       <div class="row2">
@@ -217,8 +232,9 @@
       </div>
       <ul class="entries" id="bd-items"></ul>
       <div class="modal-actions">
+        <button class="btn btn-ghost" id="bd-move"><span data-icon="log-out" data-size="16"></span> Mover</button>
         <button class="btn btn-ghost" id="bd-print"><span data-icon="qr-code" data-size="16"></span> Etiqueta</button>
-        <button class="btn btn-primary" id="bd-add"><span data-icon="plus" data-size="16"></span> Item nesta caixa</button>
+        <button class="btn btn-primary" id="bd-add"><span data-icon="plus" data-size="16"></span> Item</button>
       </div>
     </div>
   </div>
@@ -243,6 +259,41 @@
       </div>
       <div id="loc-result"></div>
     </div>
+  </div>
+
+  <!-- ============ MODAL: MOVER ITENS ============ -->
+  <div class="modal-backdrop" id="move-modal">
+    <div class="modal">
+      <div class="bd-head">
+        <div><h3 style="margin:0">Mover itens</h3><div class="bd-sub" id="mv-sub"></div></div>
+        <button class="icon-btn" id="mv-close" aria-label="Fechar"><span data-icon="x" data-size="22"></span></button>
+      </div>
+      <div class="mv-tools"><button type="button" class="hist-btn" id="mv-all">Marcar todos</button></div>
+      <ul class="mv-list" id="mv-list"></ul>
+      <div class="field"><label for="mv-target">Mover para</label><select id="mv-target"></select></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="mv-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="mv-do">Mover</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: CONFIRMAÇÃO ============ -->
+  <div class="modal-backdrop confirm-backdrop" id="confirm-modal">
+    <div class="modal confirm-box">
+      <h3 id="confirm-title">Confirmar</h3>
+      <p id="confirm-msg" class="confirm-msg"></p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="confirm-no">Cancelar</button>
+        <button class="btn btn-primary" id="confirm-yes">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ LIGHTBOX DE FOTO ============ -->
+  <div class="lightbox" id="lightbox">
+    <button class="icon-btn lb-close" id="lb-close" aria-label="Fechar"><span data-icon="x" data-size="26"></span></button>
+    <img id="lb-img" alt="Foto do item" />
   </div>
 
   <!-- ============ SCANNER DE QR ============ -->

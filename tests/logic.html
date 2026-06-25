@@ -119,6 +119,19 @@ state = { config:CFG, boxes:[{id:'b1',code:'C-01'}], items:[
 ok('só itens com out são "em uso"', state.items.filter((it) => it.out).length === 1 && state.items.filter((it) => it.out)[0].id === 'i1');
 ok('busca por nome acha item retirado (Furadeira)', searchItems('furadeira','').length === 1 && searchItems('furadeira','')[0].id === 'i1');
 
+/* ---------- fmtBytes (barra de armazenamento) ---------- */
+ok('fmtBytes formata bytes', fmtBytes(512) === '512 B');
+ok('fmtBytes formata KB', fmtBytes(2048) === '2.0 KB');
+ok('fmtBytes formata MB', /MB$/.test(fmtBytes(5 * 1024 * 1024)));
+
+/* ---------- filtro "Sem caixa": órfão (sem caixa, não solto) vs solto de propósito ---------- */
+var orphans = [
+  { id:'o1', name:'Item órfão', boxId:'' },
+  { id:'o2', name:'Solto de propósito', boxId:'', loose:true },
+  { id:'o3', name:'Na caixa', boxId:'b1' }
+].filter((it) => !it.boxId && !it.loose);
+ok('só órfãos contam no filtro Sem caixa (exclui loose)', orphans.length === 1 && orphans[0].id === 'o1');
+
 out.push('ERRORS: ' + (window.__errs.length ? window.__errs.join(' | ') : 'none'));
 out.push((fail || window.__errs.length) ? 'RESULT: FAIL' : 'RESULT: PASS');
 document.getElementById('out').textContent = out.join('\n');

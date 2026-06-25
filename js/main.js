@@ -86,6 +86,8 @@ async function init() {
   setupCatUI();
   setupSyncUI();
   setupBackupUI();
+  setupConfirmUI();
+  setupStorageUI();
   setupServiceWorker();
   setupConnectivity();
   updateFooter();

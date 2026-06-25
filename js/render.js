@@ -11,6 +11,8 @@ function render() {
 }
 
 function updateCounts() {
-  const ni = $('count-itens'); if (ni) ni.textContent = (state.items || []).length;
-  const nb = $('count-caixas'); if (nb) nb.textContent = (state.boxes || []).length;
+  const ni = $('count-itens'), nItems = (state.items || []).length;
+  if (ni) { ni.textContent = nItems; ni.style.display = nItems ? '' : 'none'; }
+  const nb = $('count-caixas'), nBoxes = (state.boxes || []).length;
+  if (nb) { nb.textContent = nBoxes; nb.style.display = nBoxes ? '' : 'none'; }
 }

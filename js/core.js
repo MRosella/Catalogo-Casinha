@@ -6,7 +6,7 @@
    entre dispositivos por um repositório GitHub privado.
    ============================================================ */
 
-const APP_VERSION = 'v3';                 // manter igual ao CACHE em sw.js
+const APP_VERSION = 'v4';                 // manter igual ao CACHE em sw.js
 const DB_NAME = 'catalogo-casinha';       // IndexedDB
 const STATE_KEY = 'state';                // chave do estado dentro do store 'app'
 const THEME_KEY = 'catalogo-casinha-theme-v1';
@@ -60,7 +60,7 @@ function getGrupos() { const seen = {}, out = []; for (const c of getCatConfig()
 function emptyState() {
   return {
     boxes: [],     // { id, code, name, location, note, mainGroup, sizeClass, updatedAt }
-    items: [],     // { id, name, boxId, category, size, qty, tags, note, photo:{data,w,h}|null, out:ts|0, updatedAt }  // out>0 = item retirado ("em uso"), ainda pertence à caixa
+    items: [],     // { id, name, boxId, category, size, qty, tags, note, photo:{data,w,h}|null, out:ts|0, loose:bool, updatedAt }  // out>0 = item retirado ("em uso"); loose = guardado solto de propósito (sem caixa)
     // (campo `out` ausente = item está na caixa; não precisa migração em normalizeState)
     log: [],       // histórico de movimentações: { id, ts, kind:'move'|'add'|'remove', itemId, itemName, from, to }
     config: { categorias: DEFAULT_CATEGORIAS.map((c) => Object.assign({}, c)) },
@@ -133,6 +133,48 @@ function toast(msg) {
   t.classList.add('show');
   clearTimeout(toast._t);
   toast._t = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+/* Confirmação no estilo do app (substitui o confirm() nativo).
+   Devolve uma Promise<boolean>. Cai no confirm() nativo se faltar o modal. */
+let _confirmResolve = null;
+function confirmDialog(message, opts) {
+  opts = opts || {};
+  return new Promise((resolve) => {
+    const m = $('confirm-modal');
+    if (!m) { resolve(window.confirm(message)); return; }
+    $('confirm-title').textContent = opts.title || 'Confirmar';
+    $('confirm-msg').textContent = message || '';
+    const yes = $('confirm-yes'), no = $('confirm-no');
+    yes.textContent = opts.okText || 'Confirmar';
+    no.textContent = opts.cancelText || 'Cancelar';
+    yes.className = 'btn ' + (opts.danger ? 'btn-danger' : 'btn-primary');
+    _confirmResolve = resolve;
+    m.classList.add('open');
+  });
+}
+function setupConfirmUI() {
+  const m = $('confirm-modal'); if (!m) return;
+  const close = (val) => { m.classList.remove('open'); const r = _confirmResolve; _confirmResolve = null; if (r) r(val); };
+  $('confirm-yes').addEventListener('click', () => close(true));
+  $('confirm-no').addEventListener('click', () => close(false));
+  m.addEventListener('click', (e) => { if (e.target === m) close(false); });
+}
+
+/* Estado vazio ilustrado (ícone + título + texto + CTA opcional via data-attr,
+   tratado por delegação na lista correspondente). */
+function emptyStateHtml(iconName, title, desc, dataAttr, btnLabel) {
+  const btn = (dataAttr && btnLabel) ? `<button type="button" class="btn btn-primary" ${dataAttr}>${escapeHtml(btnLabel)}</button>` : '';
+  return `<li class="empty-ill"><span class="ill-ic">${icon(iconName, 38)}</span><h4>${escapeHtml(title)}</h4><p>${escapeHtml(desc)}</p>${btn}</li>`;
+}
+
+/* Formata bytes em unidade legível (p/ a barra de armazenamento). */
+function fmtBytes(n) {
+  n = n || 0;
+  if (n < 1024) return n + ' B';
+  const u = ['KB', 'MB', 'GB']; let i = -1;
+  do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
+  return (n >= 10 ? Math.round(n) : n.toFixed(1)) + ' ' + u[i];
 }
 
 /* ---------------- Ícones (SVG inline, estilo Lucide) ---------------- */

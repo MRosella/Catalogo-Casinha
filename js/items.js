@@ -18,6 +18,8 @@ function openItemModal(item, presetBoxId) {
   setSizeButtons(item ? (item.size || '') : '');
   populateBoxSelects();
   $('m-box').value = item ? (item.boxId || '') : (presetBoxId || '');
+  if ($('m-loose')) $('m-loose').checked = !!(item && item.loose);
+  updateLooseRow();
   $('m-qty').value = item && item.qty ? item.qty : '';
   $('m-tags').value = item ? (item.tags || '') : '';
   $('m-note').value = item ? (item.note || '') : '';
@@ -30,6 +32,12 @@ function openItemModal(item, presetBoxId) {
   setTimeout(() => { try { $('m-name').focus(); } catch (e) {} }, 50);
 }
 function closeItemModal() { $('item-modal').classList.remove('open'); editingItemId = null; }
+
+/* Mostra a opção "guardado solto" só quando nenhuma caixa está selecionada. */
+function updateLooseRow() {
+  const row = $('m-loose-row'); if (!row) return;
+  row.style.display = (($('m-box').value || '') === '') ? 'flex' : 'none';
+}
 
 /* ---- Tamanho (botões P/M/G) ---- */
 function setSizeButtons(val) {
@@ -122,6 +130,7 @@ function saveItem() {
   it.category = $('m-categoria').value || '';
   it.size = currentSize();
   it.boxId = $('m-box').value || '';
+  it.loose = (!it.boxId && $('m-loose') && $('m-loose').checked) ? true : false;
   it.qty = parseInt($('m-qty').value, 10) || 0;
   it.tags = ($('m-tags').value || '').trim();
   it.note = ($('m-note').value || '').trim();
@@ -137,9 +146,9 @@ function saveItem() {
   toast('Item salvo.');
 }
 
-function deleteItem() {
+async function deleteItem() {
   if (!editingItemId) return;
-  if (!confirm('Excluir este item?')) return;
+  if (!await confirmDialog('Excluir este item?', { okText: 'Excluir', danger: true })) return;
   const now = Date.now();
   const it = (state.items || []).find((x) => x.id === editingItemId);
   if (it) logEvent('remove', it, boxLabelById(it.boxId), '');
@@ -151,10 +160,23 @@ function deleteItem() {
   toast('Item excluído.');
 }
 
-function viewItemPhoto() {
-  if (!itemPhoto.data) return;
-  const w = window.open('');
-  if (w) w.document.write(`<img src="${itemPhoto.data}" style="max-width:100%">`);
+function viewItemPhoto() { if (itemPhoto.data) openLightbox(itemPhoto.data); }
+
+/* ---- Lightbox interno (substitui o window.open, que saía do app no PWA) ---- */
+function openLightbox(src) {
+  const lb = $('lightbox'); if (!lb || !src) return;
+  $('lb-img').src = src;
+  lb.classList.add('open');
+}
+function closeLightbox() {
+  const lb = $('lightbox'); if (!lb) return;
+  lb.classList.remove('open');
+  $('lb-img').removeAttribute('src');
+}
+function setupLightboxUI() {
+  const lb = $('lightbox'); if (!lb) return;
+  $('lb-close').addEventListener('click', closeLightbox);
+  lb.addEventListener('click', (e) => { if (e.target === lb || e.target.id === 'lb-img') closeLightbox(); });
 }
 
 function setupItemUI() {
@@ -163,7 +185,7 @@ function setupItemUI() {
   $('m-delete').addEventListener('click', deleteItem);
   if ($('m-out')) $('m-out').addEventListener('click', () => { if (editingItemId) toggleItemOut(editingItemId); });
   $('m-categoria').addEventListener('change', refreshSuggestion);
-  $('m-box').addEventListener('change', refreshSuggestion);
+  $('m-box').addEventListener('change', () => { updateLooseRow(); refreshSuggestion(); });
   $('m-suggest').addEventListener('click', applySuggestion);
   document.querySelectorAll('#m-size-group .size-btn').forEach((b) =>
     b.addEventListener('click', () => { setSizeButtons(currentSize() === b.dataset.size ? '' : b.dataset.size); refreshSuggestion(); }));
@@ -173,5 +195,7 @@ function setupItemUI() {
   $('m-photo-import').addEventListener('change', (ev) => { const f = ev.target.files && ev.target.files[0]; ev.target.value = ''; onItemPhoto(f); });
   $('m-photo-view').addEventListener('click', viewItemPhoto);
   $('m-photo-remove').addEventListener('click', () => { itemPhoto = { mode: 'remove', data: null, w: 0, h: 0 }; renderItemPhoto(); });
+  if ($('m-photo-preview')) $('m-photo-preview').addEventListener('click', () => { if (itemPhoto.data) openLightbox(itemPhoto.data); });
   $('item-modal').addEventListener('click', (e) => { if (e.target === $('item-modal')) closeItemModal(); });
+  setupLightboxUI();
 }

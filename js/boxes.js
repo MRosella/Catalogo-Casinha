@@ -30,6 +30,13 @@ function fillChipHtml(count) {
   return `<span class="bx-fill bx-fill-${f.cls}">${ic}${escapeHtml(f.label)}</span>`;
 }
 
+/* Barra visual de ocupação (proporção count/SUGGEST_FULL), mesma cor do chip. */
+function fillBarHtml(count) {
+  const f = boxFullness(count);
+  const pct = count ? Math.max(5, Math.min(100, Math.round(count / SUGGEST_FULL * 100))) : 0;
+  return `<span class="bx-bar bx-bar-${f.cls}" aria-hidden="true"><span class="bx-bar-fill" style="width:${pct}%"></span></span>`;
+}
+
 /* ---------- Lista de caixas (tela Caixas) ---------- */
 function boxCardHtml(b) {
   const prof = boxProfile(b);
@@ -40,6 +47,7 @@ function boxCardHtml(b) {
     <div class="e-main">
       <div class="e-desc">${escapeHtml(boxTitle(b))}</div>
       <div class="e-meta">${escapeHtml(grp)} ${loc}</div>
+      ${fillBarHtml(prof.count)}
     </div>
     ${fillChipHtml(prof.count)}
     <button class="qbtn bx-edit" data-edit="${b.id}" aria-label="Editar caixa">${icon('edit', 18)}</button>
@@ -50,7 +58,10 @@ function renderBoxes() {
   const list = $('boxes-list'); if (!list) return;
   const boxes = (state.boxes || []).slice().sort((a, b) => (a.code || '').localeCompare(b.code || '', 'pt', { numeric: true }));
   if (!boxes.length) {
-    list.innerHTML = `<li class="empty-list">Nenhuma caixa ainda. Toque em “Nova caixa”.</li>`;
+    list.innerHTML = emptyStateHtml('box', 'Nenhuma caixa ainda',
+      'Crie caixas para organizar seus itens e gerar etiquetas com QR para colar nelas.',
+      'data-empty="add-box"', 'Nova caixa');
+    setupIcons(list);
     return;
   }
   list.innerHTML = boxes.map(boxCardHtml).join('');
@@ -94,12 +105,12 @@ function saveBox() {
   toast('Caixa salva.');
 }
 
-function deleteBox() {
+async function deleteBox() {
   if (!editingBoxId) return;
   const n = itemsInBox(editingBoxId).length;
   const msg = n ? `Esta caixa tem ${n} ${n === 1 ? 'item' : 'itens'}. Eles ficarão SEM caixa. Excluir a caixa?`
                 : 'Excluir esta caixa?';
-  if (!confirm(msg)) return;
+  if (!await confirmDialog(msg, { okText: 'Excluir', danger: true })) return;
   const now = Date.now();
   for (const it of itemsInBox(editingBoxId)) { it.boxId = ''; it.updatedAt = now; }   // desvincula
   state.boxes = state.boxes.filter((b) => b.id !== editingBoxId);
@@ -130,9 +141,68 @@ function openBoxDetail(id) {
 }
 function closeBoxDetail() { $('box-detail').classList.remove('open'); detailBoxId = null; setPendingBox(''); }
 
+/* ---------- Mover vários itens de uma vez (a partir do detalhe da caixa) ---------- */
+let moveFromBoxId = null;
+function openMoveModal(fromId) {
+  const b = boxById(fromId); if (!b) return;
+  moveFromBoxId = fromId;
+  const items = itemsInBox(fromId).slice().sort((a, c) => normalizeText(a.name).localeCompare(normalizeText(c.name)));
+  $('mv-sub').textContent = 'De ' + boxTitle(b);
+  const list = $('mv-list');
+  list.innerHTML = items.length
+    ? items.map((it) => `<li class="mv-row"><input type="checkbox" data-mv="${it.id}" /><span class="mv-name">${escapeHtml(it.name)}</span>${it.out ? '<span class="mv-cur">em uso</span>' : ''}</li>`).join('')
+    : `<li class="mv-empty">Caixa vazia — nada para mover.</li>`;
+  const others = (state.boxes || []).filter((x) => x.id !== fromId)
+    .sort((a, c) => (a.code || '').localeCompare(c.code || '', 'pt', { numeric: true }));
+  $('mv-target').innerHTML = '<option value="">— sem caixa —</option>' + others.map((x) => `<option value="${x.id}">${escapeHtml(boxTitle(x))}</option>`).join('');
+  $('move-modal').classList.add('open');
+}
+function closeMoveModal() { $('move-modal').classList.remove('open'); moveFromBoxId = null; }
+function doMoveItems() {
+  const checked = Array.from(document.querySelectorAll('#mv-list input[data-mv]:checked')).map((c) => c.dataset.mv);
+  if (!checked.length) { toast('Selecione ao menos um item.'); return; }
+  const toId = $('mv-target').value || '';
+  const toLabel = boxLabelById(toId);
+  const now = Date.now();
+  let n = 0;
+  for (const id of checked) {
+    const it = (state.items || []).find((x) => x.id === id);
+    if (!it || (it.boxId || '') === toId) continue;
+    logEvent('move', it, boxLabelById(it.boxId), toLabel);
+    it.boxId = toId;
+    if (toId) it.loose = false;          // entrou numa caixa: não é mais "solto de propósito"
+    it.updatedAt = now;
+    n++;
+  }
+  if (!n) { closeMoveModal(); toast('Nada mudou.'); return; }
+  touchDoc(); saveState();
+  closeMoveModal();
+  render();
+  if (detailBoxId) openBoxDetail(detailBoxId);
+  toast(n + (n === 1 ? ' item movido.' : ' itens movidos.'));
+}
+function setupMoveUI() {
+  const m = $('move-modal'); if (!m) return;
+  $('mv-close').addEventListener('click', closeMoveModal);
+  $('mv-cancel').addEventListener('click', closeMoveModal);
+  $('mv-do').addEventListener('click', doMoveItems);
+  $('mv-all').addEventListener('click', () => {
+    const cbs = document.querySelectorAll('#mv-list input[data-mv]');
+    const allOn = cbs.length && Array.from(cbs).every((c) => c.checked);
+    cbs.forEach((c) => { c.checked = !allOn; });
+  });
+  $('mv-list').addEventListener('click', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    const row = e.target.closest('.mv-row'); if (!row) return;
+    const cb = row.querySelector('input[data-mv]'); if (cb) cb.checked = !cb.checked;
+  });
+  m.addEventListener('click', (e) => { if (e.target === m) closeMoveModal(); });
+}
+
 function setupBoxUI() {
   const list = $('boxes-list');
   if (list) list.addEventListener('click', (e) => {
+    if (e.target.closest('[data-empty="add-box"]')) { openBoxModal(null); return; }
     const ed = e.target.closest('[data-edit]');
     if (ed) { const b = boxById(ed.dataset.edit); if (b) openBoxModal(b); return; }
     const row = e.target.closest('[data-box]');
@@ -147,8 +217,12 @@ function setupBoxUI() {
   // detalhe da caixa
   $('bd-close').addEventListener('click', closeBoxDetail);
   $('bd-add').addEventListener('click', () => { const id = detailBoxId; closeBoxDetail(); openItemModal(null, id); });
+  if ($('bd-move')) $('bd-move').addEventListener('click', () => { if (detailBoxId) openMoveModal(detailBoxId); });
+  setupMoveUI();
   const bdItems = $('bd-items');
   if (bdItems) bdItems.addEventListener('click', (e) => {
+    const qa = e.target.closest('[data-qadd]'); if (qa) { e.stopPropagation(); bumpQty(qa.dataset.qadd, 1); return; }
+    const qs = e.target.closest('[data-qsub]'); if (qs) { e.stopPropagation(); bumpQty(qs.dataset.qsub, -1); return; }
     const tg = e.target.closest('[data-toggleout]');
     if (tg) { e.stopPropagation(); toggleItemOut(tg.dataset.toggleout); return; }
     const li = e.target.closest('[data-item]'); if (!li) return;

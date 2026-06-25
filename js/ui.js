@@ -5,9 +5,6 @@
    ============================================================ */
 const VIEW_TITLES = { buscar: 'Buscar', caixas: 'Caixas', config: 'Configurações' };
 
-function openDrawer() { $('drawer').classList.add('open'); $('drawer-backdrop').classList.add('show'); }
-function closeDrawer() { $('drawer').classList.remove('open'); $('drawer-backdrop').classList.remove('show'); }
-
 function showView(name) {
   if (!VIEW_TITLES[name]) name = 'buscar';
   document.querySelectorAll('.view').forEach((v) => { v.hidden = (v.id !== 'view-' + name); });
@@ -15,14 +12,13 @@ function showView(name) {
   const ht = $('header-title'); if (ht) ht.textContent = VIEW_TITLES[name];
   if (name === 'buscar') renderResults();
   if (name === 'caixas') renderBoxes();
+  if (name === 'config') renderStorage();
   window.scrollTo(0, 0);
 }
 
 function setupNav() {
-  $('menu-toggle').addEventListener('click', openDrawer);
-  $('drawer-backdrop').addEventListener('click', closeDrawer);
   document.querySelectorAll('.nav-item').forEach((b) =>
-    b.addEventListener('click', () => { showView(b.dataset.view); closeDrawer(); }));
+    b.addEventListener('click', () => showView(b.dataset.view)));
   showView('buscar');
 }
 
@@ -91,8 +87,8 @@ function setupCatUI() {
   });
   $('cat-add').addEventListener('click', () => { getCatDraft().push({ nome: '', grupo: '' }); renderCatEditor(); });
   $('cat-save').addEventListener('click', saveCatEditor);
-  $('cat-reset').addEventListener('click', () => {
-    if (!confirm('Restaurar as categorias padrão?')) return;
+  $('cat-reset').addEventListener('click', async () => {
+    if (!await confirmDialog('Restaurar as categorias padrão?', { okText: 'Restaurar' })) return;
     catDraft = DEFAULT_CATEGORIAS.map((c) => Object.assign({}, c)); renderCatEditor(); setCatStatus('');
   });
 }
@@ -110,11 +106,11 @@ function exportBackup() {
 function importBackupFile(file) {
   if (!file) return;
   const r = new FileReader();
-  r.onload = () => {
+  r.onload = async () => {
     try {
       const doc = JSON.parse(r.result);
       if (!doc || (!Array.isArray(doc.items) && !Array.isArray(doc.boxes))) throw new Error('arquivo inválido');
-      if (!confirm('Mesclar este backup com os dados atuais? (itens/caixas se somam; o mais recente vence)')) return;
+      if (!await confirmDialog('Mesclar este backup com os dados atuais? Itens e caixas se somam; o mais recente vence.', { okText: 'Mesclar' })) return;
       const merged = mergeDocs(currentDoc(), doc);
       touchProfile();
       applyDoc(merged);
@@ -128,3 +124,21 @@ function setupBackupUI() {
   if ($('bk-import-btn')) $('bk-import-btn').addEventListener('click', () => $('bk-import').click());
   if ($('bk-import')) $('bk-import').addEventListener('change', (ev) => { const f = ev.target.files && ev.target.files[0]; ev.target.value = ''; importBackupFile(f); });
 }
+
+/* ---------------- Armazenamento (uso do dispositivo, barra visual) ---------------- */
+async function renderStorage() {
+  const bar = $('store-fill'), txt = $('store-txt'); if (!txt) return;
+  if (!navigator.storage || !navigator.storage.estimate) {
+    txt.textContent = 'Medição indisponível neste navegador.';
+    if (bar) bar.style.width = '0';
+    return;
+  }
+  try {
+    const est = await navigator.storage.estimate();
+    const usage = est.usage || 0, quota = est.quota || 0;
+    const pct = quota ? Math.min(100, Math.round(usage / quota * 100)) : 0;
+    if (bar) { bar.style.width = Math.max(2, pct) + '%'; bar.className = 'store-fill' + (pct >= 90 ? ' full' : (pct >= 70 ? ' near' : '')); }
+    txt.textContent = quota ? `${fmtBytes(usage)} de ${fmtBytes(quota)} (${pct}%)` : `${fmtBytes(usage)} usados`;
+  } catch (e) { txt.textContent = 'Não foi possível medir o armazenamento.'; }
+}
+function setupStorageUI() { renderStorage(); }
