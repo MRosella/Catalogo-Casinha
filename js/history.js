@@ -27,9 +27,17 @@ function logText(ev) {
   if (ev.kind === 'move') return `${nm} movido de ${escapeHtml(ev.from)} → ${escapeHtml(ev.to)}`;
   if (ev.kind === 'add') return `${nm} cadastrado em ${escapeHtml(ev.to || '(sem caixa)')}`;
   if (ev.kind === 'remove') return `${nm} excluído${ev.from ? ' de ' + escapeHtml(ev.from) : ''}`;
+  if (ev.kind === 'out') return `${nm} em uso${ev.from ? ' (de ' + escapeHtml(ev.from) + ')' : ''}`;
+  if (ev.kind === 'return') return `${nm} devolvido${ev.to ? ' a ' + escapeHtml(ev.to) : ''}`;
   return nm;
 }
-function logIcon(kind) { return kind === 'add' ? 'plus' : kind === 'remove' ? 'trash-2' : 'refresh-cw'; }
+function logIcon(kind) {
+  if (kind === 'add') return 'plus';
+  if (kind === 'remove') return 'trash-2';
+  if (kind === 'out') return 'log-out';
+  if (kind === 'return') return 'rotate-ccw';
+  return 'refresh-cw';
+}
 
 function fmtWhen(ts) {
   if (!ts) return '';

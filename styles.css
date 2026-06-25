@@ -275,6 +275,25 @@ details.card[open] summary .chev { transform: rotate(180deg); }
 .loc-sug-r { font-size: .76rem; color: var(--muted); margin-top: 3px; }
 .loc-others-h { font-size: .74rem; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
 
+/* ---------- "Em uso" (item retirado, não excluído) ---------- */
+.it-out-badge {
+  display: inline-flex; align-items: center; gap: 3px; vertical-align: middle;
+  font-size: .62rem; font-weight: 800; padding: 2px 7px; border-radius: 20px;
+  background: #fdf0d8; color: #a35a10;
+}
+:root[data-theme="dark"] .it-out-badge { background: #3a2f16; color: #e6b15a; }
+.entry.is-out { box-shadow: inset 3px 0 0 0 var(--amber), var(--shadow); }
+.qbtn.it-out-btn { flex: none; }
+.qbtn.it-out-btn.active { color: var(--amber); }
+/* chip-filtro "Em uso" na busca */
+.chip.chip-out { border-color: var(--amber); color: #a35a10; display: inline-flex; align-items: center; gap: 4px; }
+:root[data-theme="dark"] .chip.chip-out { color: #e6b15a; }
+.chip.chip-out.active { background: linear-gradient(135deg, var(--amber), #b5701a); color: #fff; border-color: transparent; }
+/* botão de alternância no modal do item */
+.m-out-btn { width: 100%; justify-content: center; margin-bottom: 12px; }
+.m-out-btn.active { border-color: var(--amber); color: #a35a10; background: #fdf0d8; }
+:root[data-theme="dark"] .m-out-btn.active { background: #3a2f16; color: #e6b15a; }
+
 /* ---------- Scanner de QR (overlay) ---------- */
 .scan-overlay { position: fixed; inset: 0; z-index: 95; background: #000; display: none; align-items: center; justify-content: center; }
 .scan-overlay.open { display: flex; }

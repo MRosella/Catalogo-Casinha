@@ -23,6 +23,7 @@ function openItemModal(item, presetBoxId) {
   $('m-note').value = item ? (item.note || '') : '';
   itemPhoto = { mode: 'keep', data: item && item.photo ? item.photo.data : null, w: item && item.photo ? item.photo.w : 0, h: item && item.photo ? item.photo.h : 0 };
   renderItemPhoto();
+  renderOutToggle(item && item.out ? item.out : 0);
   $('m-delete').style.display = item ? '' : 'none';
   refreshSuggestion();
   $('item-modal').classList.add('open');
@@ -66,6 +67,31 @@ function applySuggestion() {
     $('m-box').value = s.box.id;
   }
   refreshSuggestion();
+}
+
+/* ---- "Em uso" (retirado da caixa, sem excluir) ---- */
+/* Reflete o estado no botão do modal; some em item novo (ainda não salvo). */
+function renderOutToggle(outTs) {
+  const btn = $('m-out'); if (!btn) return;
+  if (!editingItemId) { btn.style.display = 'none'; return; }
+  btn.style.display = '';
+  const isOut = !!outTs;
+  btn.classList.toggle('active', isOut);
+  btn.innerHTML = `${icon(isOut ? 'rotate-ccw' : 'log-out', 16)} ${isOut ? 'Devolver à caixa' : 'Marcar como em uso'}`;
+}
+/* Alterna o estado "em uso" de um item por id; registra no histórico e re-renderiza. */
+function toggleItemOut(id) {
+  const it = (state.items || []).find((x) => x.id === id); if (!it) return;
+  const now = Date.now();
+  const wasOut = !!it.out;
+  it.out = wasOut ? 0 : now;
+  it.updatedAt = now;
+  logEvent(wasOut ? 'return' : 'out', it, boxLabelById(it.boxId), boxLabelById(it.boxId));
+  touchDoc(); saveState();
+  render();
+  if (detailBoxId) openBoxDetail(detailBoxId);          // atualiza o detalhe da caixa aberto
+  if (editingItemId === id) renderOutToggle(it.out);     // atualiza o botão do modal aberto
+  toast(wasOut ? 'Devolvido à caixa.' : 'Marcado como em uso.');
 }
 
 /* ---- Foto (embutida) ---- */
@@ -135,6 +161,7 @@ function setupItemUI() {
   $('m-save').addEventListener('click', saveItem);
   $('m-cancel').addEventListener('click', closeItemModal);
   $('m-delete').addEventListener('click', deleteItem);
+  if ($('m-out')) $('m-out').addEventListener('click', () => { if (editingItemId) toggleItemOut(editingItemId); });
   $('m-categoria').addEventListener('change', refreshSuggestion);
   $('m-box').addEventListener('change', refreshSuggestion);
   $('m-suggest').addEventListener('click', applySuggestion);

@@ -5,6 +5,7 @@
 let searchQuery = '';
 let searchCat = '';   // '' = todas
 let searchSort = 'rec';   // rec=recentes(updatedAt) · vis=vistos por último · az=nome · cat=categoria
+let searchOut = false;    // true = mostrar só itens "em uso" (retirados)
 
 /* "Vistos por último": lista LOCAL de ids de itens abertos (não sincroniza). */
 function recentViewed() { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) { return []; } }
@@ -56,13 +57,17 @@ function itemCardHtml(it) {
   const box = boxById(it.boxId);
   const local = box ? (box.code ? box.code : '') + (box.name ? (box.code ? ' · ' : '') + box.name : '') : 'sem caixa';
   const meta = [it.category, it.qty ? ('×' + it.qty) : ''].filter(Boolean).join(' · ');
-  return `<li class="entry" data-item="${it.id}">
+  const out = !!it.out;
+  const outBadge = out ? `<span class="it-out-badge">${icon('log-out', 11)} Em uso</span>` : '';
+  const toggle = `<button class="qbtn it-out-btn${out ? ' active' : ''}" data-toggleout="${it.id}" aria-label="${out ? 'Devolver à caixa' : 'Marcar como em uso'}" title="${out ? 'Devolver à caixa' : 'Marcar como em uso'}">${icon(out ? 'rotate-ccw' : 'log-out', 18)}</button>`;
+  return `<li class="entry${out ? ' is-out' : ''}" data-item="${it.id}">
     ${thumbHtml(it)}
     <div class="e-main">
-      <div class="e-desc">${escapeHtml(it.name)} ${sizeBadge(it.size)}</div>
+      <div class="e-desc">${escapeHtml(it.name)} ${sizeBadge(it.size)} ${outBadge}</div>
       <div class="e-meta">${escapeHtml(meta)}</div>
     </div>
     <span class="e-box">${icon('box', 14)} ${escapeHtml(local)}</span>
+    ${toggle}
   </li>`;
 }
 
@@ -72,7 +77,9 @@ function renderCatChips() {
   const counts = {};
   for (const it of (state.items || [])) counts[it.category] = (counts[it.category] || 0) + 1;
   const cats = getCategorias();
+  const outN = (state.items || []).filter((it) => it.out).length;
   let html = `<button class="chip${searchCat === '' ? ' active' : ''}" data-cat="">Todas (${(state.items || []).length})</button>`;
+  if (outN) html += `<button class="chip chip-out${searchOut ? ' active' : ''}" data-onlyout="1">${icon('log-out', 12)} Em uso (${outN})</button>`;
   html += cats.filter((c) => counts[c]).map((c) =>
     `<button class="chip${searchCat === c ? ' active' : ''}" data-cat="${escapeHtml(c)}">${escapeHtml(c)} (${counts[c]})</button>`).join('');
   box.innerHTML = html;
@@ -82,7 +89,9 @@ function renderCatChips() {
 function renderResults() {
   const list = $('results'); if (!list) return;
   renderCatChips();
-  const res = sortResults(searchItems(searchQuery, searchCat));
+  let found = searchItems(searchQuery, searchCat);
+  if (searchOut) found = found.filter((it) => it.out);
+  const res = sortResults(found);
   if (!res.length) {
     const total = (state.items || []).length;
     list.innerHTML = `<li class="empty-list">${total ? 'Nada encontrado para essa busca.' : 'Nenhum item ainda. Toque em “Novo item” para começar.'}</li>`;
@@ -97,6 +106,8 @@ function setupSearchUI() {
   if (q) q.addEventListener('input', () => { searchQuery = q.value; renderResults(); });
   const chips = $('cat-chips');
   if (chips) chips.addEventListener('click', (e) => {
+    const out = e.target.closest('[data-onlyout]');
+    if (out) { searchOut = !searchOut; renderResults(); return; }
     const b = e.target.closest('[data-cat]'); if (!b) return;
     searchCat = b.dataset.cat || '';
     renderResults();
@@ -105,6 +116,8 @@ function setupSearchUI() {
   if (sort) sort.addEventListener('change', () => { searchSort = sort.value || 'rec'; renderResults(); });
   const list = $('results');
   if (list) list.addEventListener('click', (e) => {
+    const tg = e.target.closest('[data-toggleout]');
+    if (tg) { e.stopPropagation(); toggleItemOut(tg.dataset.toggleout); return; }
     const li = e.target.closest('[data-item]'); if (!li) return;
     const it = (state.items || []).find((x) => x.id === li.dataset.item);
     if (it) openItemModal(it);

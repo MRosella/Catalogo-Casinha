@@ -128,7 +128,7 @@ function openBoxDetail(id) {
   $('bd-print').onclick = () => printLabels([b]);
   $('box-detail').classList.add('open');
 }
-function closeBoxDetail() { $('box-detail').classList.remove('open'); detailBoxId = null; }
+function closeBoxDetail() { $('box-detail').classList.remove('open'); detailBoxId = null; setPendingBox(''); }
 
 function setupBoxUI() {
   const list = $('boxes-list');
@@ -149,6 +149,8 @@ function setupBoxUI() {
   $('bd-add').addEventListener('click', () => { const id = detailBoxId; closeBoxDetail(); openItemModal(null, id); });
   const bdItems = $('bd-items');
   if (bdItems) bdItems.addEventListener('click', (e) => {
+    const tg = e.target.closest('[data-toggleout]');
+    if (tg) { e.stopPropagation(); toggleItemOut(tg.dataset.toggleout); return; }
     const li = e.target.closest('[data-item]'); if (!li) return;
     const it = (state.items || []).find((x) => x.id === li.dataset.item);
     if (it) { closeBoxDetail(); openItemModal(it); }

@@ -31,18 +31,46 @@ function setupTheme() {
   }
 }
 
-/* ---------------- Deep-link: #box=<id> (vindo do QR da caixa) ---------------- */
+/* ---------------- Deep-link: #box=<id> (vindo do QR da caixa) ----------------
+   O SW usa skipWaiting()+clients.claim() e recarrega a página em controllerchange
+   (setupServiceWorker). Na 1ª abertura vinda do QR esse reload dispara DEPOIS do
+   handleHash limpar o hash → o deep-link se perdia e caíamos na tela Buscar.
+   Solução: gravar o id em sessionStorage (sobrevive ao reload da mesma aba) já no
+   topo do init e só consumir após carregar o estado; limpar ao fechar a caixa. */
+function pendingBox() { try { return sessionStorage.getItem(PENDING_BOX_KEY) || ''; } catch (e) { return ''; } }
+function setPendingBox(id) { try { id ? sessionStorage.setItem(PENDING_BOX_KEY, id) : sessionStorage.removeItem(PENDING_BOX_KEY); } catch (e) {} }
+
+/* Síncrono, chamado no INÍCIO do init (antes do SW poder recarregar): captura o id
+   do hash, guarda em sessionStorage e limpa a URL. */
+function captureDeepLink() {
+  const m = /^#box=(.+)$/.exec(location.hash || '');
+  if (!m) return;
+  setPendingBox(decodeURIComponent(m[1]));
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+}
+
+/* Chamado APÓS loadState(): abre a caixa pendente (se existir). Não remove a chave
+   aqui — deixa sobreviver a um eventual reload do SW; limpa só ao fechar a caixa
+   (closeBoxDetail) ou se o id não corresponder a nenhuma caixa. */
+function consumeDeepLink() {
+  const id = pendingBox();
+  if (!id) return;
+  if (boxById(id)) { showView('caixas'); openBoxDetail(id); }
+  else setPendingBox('');
+}
+
+/* Navegação por hash já com o app aberto (#box=<id>). */
 function handleHash() {
   const m = /^#box=(.+)$/.exec(location.hash || '');
   if (!m) return;
-  const id = decodeURIComponent(m[1]);
-  if (boxById(id)) { showView('caixas'); openBoxDetail(id); }
-  // limpa o hash p/ não reabrir ao navegar
+  setPendingBox(decodeURIComponent(m[1]));
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+  consumeDeepLink();
 }
 
 /* ---------------- Inicialização ---------------- */
 async function init() {
+  captureDeepLink();   // guarda o alvo do QR ANTES do SW poder recarregar a página
   setupTheme();
   setupIcons();
 
@@ -78,7 +106,7 @@ async function init() {
     if (document.visibilityState === 'visible' && isSyncConfigured() && navigator.onLine) syncNow(true);
   });
 
-  handleHash();
+  consumeDeepLink();   // abre a caixa pendente (do QR) agora que o estado carregou
   window.addEventListener('hashchange', handleHash);
 }
 

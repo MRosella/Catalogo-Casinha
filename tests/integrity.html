@@ -27,16 +27,16 @@ var checks = {
   'idb':     ['idb','idbGet','idbPut','compressImage','photoFromFile'],
   'suggest': ['suggestBox','boxProfile','sizeCompat','suggestReason'],
   'boxes':   ['renderBoxes','openBoxModal','saveBox','deleteBox','openBoxDetail','nextBoxCode','boxTitle','setupBoxUI','boxFullness','fillChipHtml'],
-  'items':   ['openItemModal','saveItem','deleteItem','refreshSuggestion','applySuggestion','setupItemUI'],
+  'items':   ['openItemModal','saveItem','deleteItem','refreshSuggestion','applySuggestion','setupItemUI','toggleItemOut','renderOutToggle'],
   'history': ['logEvent','boxLabelById','logText','renderHistory','clearHistory','setupHistoryUI'],
   'scan':    ['scanSupported','startScan','stopScan','parseBoxFromText','setupScanUI'],
-  'locate':  ['openLocate','renderLocate','setupLocateUI','populateLocCats'],
+  'locate':  ['openLocate','renderLocate','setupLocateUI','populateLocCats','topCategory','locateMatchesHtml','locateSuggestHtml'],
   'search':  ['searchItems','renderResults','itemCardHtml','setupSearchUI','sortResults','markViewed','recentViewed'],
   'qr':      ['appBaseUrl','boxQrUrl','qrDataUrl','printLabels','labelHtml'],
   'sync':    ['syncNow','mergeDocs','mergeList','mergeLog','currentDoc','applyDoc','setupSyncUI'],
   'ui':      ['showView','setupNav','populateCategorySelects','populateBoxSelects','renderCatEditor','saveCatEditor','exportBackup','importBackupFile'],
   'render':  ['render','updateCounts'],
-  'main':    ['init','setupTheme','handleHash','setupServiceWorker']
+  'main':    ['init','setupTheme','handleHash','setupServiceWorker','captureDeepLink','consumeDeepLink']
 };
 var out = [], fail = 0;
 for (var file in checks) {

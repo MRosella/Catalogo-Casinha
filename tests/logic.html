@@ -105,6 +105,20 @@ var ml = mergeLog(L1, L2, 0);
 ok('mergeLog une por id (3 eventos)', ml.length===3);
 ok('mergeLog clearedAt corta antigos', mergeLog(L1, L2, 2500).length===1 && mergeLog(L1,L2,2500)[0].id==='e3');
 
+/* ---------- topCategory (inferir categoria pelo nome, no "Onde guardar?") ---------- */
+ok('topCategory pega a categoria mais frequente', topCategory([
+  { category:'Material elétrico' }, { category:'Material elétrico' }, { category:'Jardinagem' }
+]) === 'Material elétrico');
+ok('topCategory ignora itens sem categoria', topCategory([{ category:'' }, { category:'Jardinagem' }]) === 'Jardinagem');
+
+/* ---------- filtro "Em uso" (busca só itens retirados) ---------- */
+state = { config:CFG, boxes:[{id:'b1',code:'C-01'}], items:[
+  { id:'i1', name:'Furadeira', category:'Ferramentas manuais', boxId:'b1', out: Date.now() },
+  { id:'i2', name:'Martelo', category:'Ferramentas manuais', boxId:'b1' }
+], tomb:{boxes:{},items:{}}, meta:{} };
+ok('só itens com out são "em uso"', state.items.filter((it) => it.out).length === 1 && state.items.filter((it) => it.out)[0].id === 'i1');
+ok('busca por nome acha item retirado (Furadeira)', searchItems('furadeira','').length === 1 && searchItems('furadeira','')[0].id === 'i1');
+
 out.push('ERRORS: ' + (window.__errs.length ? window.__errs.join(' | ') : 'none'));
 out.push((fail || window.__errs.length) ? 'RESULT: FAIL' : 'RESULT: PASS');
 document.getElementById('out').textContent = out.join('\n');

@@ -6,7 +6,7 @@
    entre dispositivos por um repositório GitHub privado.
    ============================================================ */
 
-const APP_VERSION = 'v2';                 // manter igual ao CACHE em sw.js
+const APP_VERSION = 'v3';                 // manter igual ao CACHE em sw.js
 const DB_NAME = 'catalogo-casinha';       // IndexedDB
 const STATE_KEY = 'state';                // chave do estado dentro do store 'app'
 const THEME_KEY = 'catalogo-casinha-theme-v1';
@@ -14,6 +14,7 @@ const SYNC_KEY = 'catalogo-casinha-sync-v1';
 const LASTSYNC_KEY = 'catalogo-casinha-lastsync-v1';
 const DIRTY_KEY = 'catalogo-casinha-dirty-v1';
 const RECENT_KEY = 'catalogo-casinha-recent-v1';   // ids de itens abertos por último (LOCAL, p/ ordenar "Vistos")
+const PENDING_BOX_KEY = 'catalogo-casinha-pendingbox';   // deep-link do QR pendente (sessionStorage; sobrevive ao reload do SW)
 
 /* Tamanhos físicos do item (P/M/G) — usados pela sugestão de caixa. */
 const SIZES = [
@@ -59,7 +60,8 @@ function getGrupos() { const seen = {}, out = []; for (const c of getCatConfig()
 function emptyState() {
   return {
     boxes: [],     // { id, code, name, location, note, mainGroup, sizeClass, updatedAt }
-    items: [],     // { id, name, boxId, category, size, qty, tags, note, photo:{data,w,h}|null, updatedAt }
+    items: [],     // { id, name, boxId, category, size, qty, tags, note, photo:{data,w,h}|null, out:ts|0, updatedAt }  // out>0 = item retirado ("em uso"), ainda pertence à caixa
+    // (campo `out` ausente = item está na caixa; não precisa migração em normalizeState)
     log: [],       // histórico de movimentações: { id, ts, kind:'move'|'add'|'remove', itemId, itemName, from, to }
     config: { categorias: DEFAULT_CATEGORIAS.map((c) => Object.assign({}, c)) },
     tomb: { boxes: {}, items: {} },   // lápides de deleção: id -> ts
@@ -154,7 +156,9 @@ const ICONS = {
   check: '<path d="M20 6 9 17l-5-5"/>',
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
   edit: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/>',
-  'map-pin': '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>'
+  'map-pin': '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
+  'rotate-ccw': '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>'
 };
 function icon(name, size) {
   const p = ICONS[name]; if (!p) return '';
