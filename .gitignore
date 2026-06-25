@@ -1,0 +1,8 @@
+# Sistema
+Thumbs.db
+ehthumb.db
+Desktop.ini
+.DS_Store
+
+# Temporários de teste (screenshots/harness descartáveis começam com _)
+tests/_*

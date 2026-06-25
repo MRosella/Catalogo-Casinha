@@ -1,0 +1,45 @@
+<!doctype html><html><head>
+<!-- Teste de integridade do split (rode headless; ver CLAUDE.md > Verificação).
+     Carrega os js/*.js na MESMA ordem do index.html e confere que cada arquivo definiu
+     suas funções. Um SyntaxError/redeclaração pula o arquivo inteiro → a função some = FAIL.
+     O bloco de checagem roda SÍNCRONO no body, antes do DOMContentLoaded (que dispara init()
+     e quebraria sem DOM) — então o resultado é calculado antes de qualquer erro de init. -->
+<script>window.__errs=[]; window.onerror=function(m,s,l){window.__errs.push(m+' @'+(s||'')+':'+l);};</script>
+<script src="../lib/qrcode.min.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/idb.js"></script>
+<script src="../js/suggest.js"></script>
+<script src="../js/search.js"></script>
+<script src="../js/boxes.js"></script>
+<script src="../js/items.js"></script>
+<script src="../js/qr.js"></script>
+<script src="../js/sync.js"></script>
+<script src="../js/ui.js"></script>
+<script src="../js/render.js"></script>
+<script src="../js/main.js"></script>
+</head><body><pre id="out">PENDING</pre>
+<script>
+var checks = {
+  'core':    ['emptyState','loadState','saveState','getCatConfig','grupoDaCategoria','normalizeText','icon','itemsInBox'],
+  'idb':     ['idb','idbGet','idbPut','compressImage','photoFromFile'],
+  'suggest': ['suggestBox','boxProfile','sizeCompat','suggestReason'],
+  'search':  ['searchItems','renderResults','itemCardHtml','setupSearchUI'],
+  'boxes':   ['renderBoxes','openBoxModal','saveBox','deleteBox','openBoxDetail','nextBoxCode','boxTitle','setupBoxUI'],
+  'items':   ['openItemModal','saveItem','deleteItem','refreshSuggestion','applySuggestion','setupItemUI'],
+  'qr':      ['appBaseUrl','boxQrUrl','qrDataUrl','printLabels','labelHtml'],
+  'sync':    ['syncNow','mergeDocs','mergeList','currentDoc','applyDoc','setupSyncUI'],
+  'ui':      ['showView','setupNav','populateCategorySelects','populateBoxSelects','renderCatEditor','saveCatEditor','exportBackup','importBackupFile'],
+  'render':  ['render','updateCounts'],
+  'main':    ['init','setupTheme','handleHash','setupServiceWorker']
+};
+var out = [], fail = 0;
+for (var file in checks) {
+  var miss = checks[file].filter(function(fn){ return typeof window[fn] !== 'function'; });
+  if (miss.length) fail++;
+  out.push((miss.length ? 'FAIL ' : 'OK   ') + file + (miss.length ? ' missing: ' + miss.join(',') : ''));
+}
+out.push('ERRORS: ' + (window.__errs.length ? window.__errs.join(' | ') : 'none'));
+out.push(fail || window.__errs.length ? 'RESULT: FAIL' : 'RESULT: PASS');
+document.getElementById('out').textContent = out.join('\n');
+</script>
+</body></html>

@@ -1,0 +1,82 @@
+<!doctype html><html><head>
+<!-- Testes de lógica pura (rode headless; ver CLAUDE.md > Verificação).
+     Exercita searchItems, suggestBox, mergeDocs e boxQrUrl com fixtures.
+     Roda síncrono no body (antes do init() do DOMContentLoaded). -->
+<script>window.__errs=[]; window.onerror=function(m,s,l){window.__errs.push(m+' @'+(s||'')+':'+l);};</script>
+<script src="../lib/qrcode.min.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/idb.js"></script>
+<script src="../js/suggest.js"></script>
+<script src="../js/search.js"></script>
+<script src="../js/boxes.js"></script>
+<script src="../js/items.js"></script>
+<script src="../js/qr.js"></script>
+<script src="../js/sync.js"></script>
+<script src="../js/ui.js"></script>
+<script src="../js/render.js"></script>
+<script src="../js/main.js"></script>
+</head><body><pre id="out">PENDING</pre>
+<script>
+var out = [], fail = 0;
+function ok(name, cond){ out.push((cond?'OK   ':'FAIL ')+name); if(!cond) fail++; }
+
+var CFG = { categorias: [
+  { nome:'Material elétrico', grupo:'Elétrica' },
+  { nome:'Cabos e fios', grupo:'Elétrica' },
+  { nome:'Jardinagem', grupo:'Jardinagem' },
+  { nome:'Ferramentas manuais', grupo:'Ferramentas' }
+]};
+
+/* ---------- searchItems: acento/caixa + filtro ---------- */
+state = { config: CFG, boxes:[{id:'b1',code:'C-01',name:'Elétrica'}], items:[
+  { id:'i1', name:'Parafusos Philips', category:'Ferramentas manuais', boxId:'b1', tags:'metal' },
+  { id:'i2', name:'Material elétrico diverso', category:'Material elétrico', boxId:'b1', tags:'tomada' }
+], tomb:{boxes:{},items:{}}, meta:{} };
+ok('busca ignora acento/caixa (PARAFUSO->Parafusos)', searchItems('PARAFUSO','').length===1 && searchItems('PARAFUSO','')[0].id==='i1');
+ok('busca por tag (tomada)', searchItems('tomada','').length===1 && searchItems('tomada','')[0].id==='i2');
+ok('busca casa nome da caixa (eletrica)', searchItems('eletrica','').length>=1);
+ok('filtro de categoria', searchItems('','Material elétrico').length===1);
+ok('busca vazia retorna tudo', searchItems('','').length===2);
+
+/* ---------- suggestBox: grupo + tamanho + createNew ---------- */
+function mkItems(boxId, cat, size, n){ var a=[]; for(var i=0;i<n;i++) a.push({id:boxId+'-'+i,name:'x',category:cat,boxId:boxId,size:size}); return a; }
+
+// afinidade de grupo: item de "Cabos e fios" (Elétrica) deve cair na caixa elétrica
+state = { config: CFG, boxes:[{id:'b1'},{id:'b2'}], items:
+  mkItems('b1','Material elétrico','M',3).concat(mkItems('b2','Jardinagem','M',3)),
+  tomb:{boxes:{},items:{}}, meta:{} };
+var s1 = suggestBox({ category:'Cabos e fios', size:'M' });
+ok('sugere caixa do mesmo grupo (Elétrica)', !s1.createNew && s1.box && s1.box.id==='b1');
+
+// tamanho: entre duas caixas elétricas, item P evita a de itens G
+state = { config: CFG, boxes:[{id:'bg'},{id:'bp'}], items:
+  mkItems('bg','Material elétrico','G',3).concat(mkItems('bp','Material elétrico','P',3)),
+  tomb:{boxes:{},items:{}}, meta:{} };
+var s2 = suggestBox({ category:'Cabos e fios', size:'P' });
+ok('item P prefere caixa de itens P (evita G)', !s2.createNew && s2.box && s2.box.id==='bp');
+
+// sem caixas: recomenda criar nova
+state = { config: CFG, boxes:[], items:[], tomb:{boxes:{},items:{}}, meta:{} };
+var s3 = suggestBox({ category:'Cabos e fios', size:'P' });
+ok('sem caixa combinando -> createNew', s3.createNew===true && s3.newSeed && s3.newSeed.mainGroup==='Elétrica');
+
+/* ---------- mergeDocs: last-write-wins + lápides ----------
+   (timestamps reais: mergeList descarta lápides com +180 dias) */
+var T = Date.now();
+var A = { config:CFG, boxes:[], items:[{id:'i1',name:'A',updatedAt:T}], tomb:{boxes:{},items:{}}, meta:{updatedAt:T,profileUpdatedAt:0} };
+var B = { config:CFG, boxes:[], items:[{id:'i1',name:'A2',updatedAt:T+1000}], tomb:{boxes:{},items:{}}, meta:{updatedAt:T+1000,profileUpdatedAt:0} };
+var m1 = mergeDocs(A,B);
+ok('merge last-write-wins (i1 -> A2)', m1.items.length===1 && m1.items[0].name==='A2');
+
+var C = { config:CFG, boxes:[], items:[], tomb:{boxes:{},items:{i1:T+2000}}, meta:{updatedAt:T+2000,profileUpdatedAt:0} };
+var m2 = mergeDocs(A,C);
+ok('lápide remove item deletado', m2.items.length===0);
+
+/* ---------- boxQrUrl ---------- */
+ok('boxQrUrl termina com #box=<id>', /#box=abc$/.test(boxQrUrl('abc')));
+
+out.push('ERRORS: ' + (window.__errs.length ? window.__errs.join(' | ') : 'none'));
+out.push((fail || window.__errs.length) ? 'RESULT: FAIL' : 'RESULT: PASS');
+document.getElementById('out').textContent = out.join('\n');
+</script>
+</body></html>

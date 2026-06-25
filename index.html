@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="theme-color" content="#2f7d4f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Catálogo" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <script>
+    /* aplica o tema o quanto antes para evitar "flash" de tela clara */
+    (function () {
+      try {
+        var p = localStorage.getItem('catalogo-casinha-theme-v1');
+        var dark = p ? p === 'dark' : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css" />
+  <title>Catálogo da Casinha</title>
+</head>
+<body>
+  <!-- Menu lateral -->
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+  <aside class="drawer" id="drawer" aria-label="Menu de navegação">
+    <div class="drawer-head">
+      <span class="drawer-logo" data-icon="box" data-size="34"></span>
+      <div class="drawer-greet">Catálogo da<br><b>Casinha</b></div>
+    </div>
+    <nav class="drawer-nav">
+      <button class="nav-item active" data-view="buscar"><span class="nav-ic" data-icon="search" data-size="22"></span> Buscar <span class="nav-count" id="count-itens"></span></button>
+      <button class="nav-item" data-view="caixas"><span class="nav-ic" data-icon="box" data-size="22"></span> Caixas <span class="nav-count" id="count-caixas"></span></button>
+      <button class="nav-item" data-view="config"><span class="nav-ic" data-icon="settings" data-size="22"></span> Configurações</button>
+    </nav>
+    <div class="drawer-foot">Catálogo da Casinha<br><span id="ft-version"></span></div>
+  </aside>
+
+  <!-- Cabeçalho -->
+  <header class="app-header">
+    <button class="icon-btn menu-toggle" id="menu-toggle" aria-label="Menu"><span data-icon="menu" data-size="24"></span></button>
+    <div class="title" id="header-title">Buscar</div>
+    <div class="spacer"></div>
+    <button class="icon-btn sync-ind" id="sync-ind" aria-label="Sincronizar" style="display:none"></button>
+    <button class="icon-btn" id="theme-toggle" aria-label="Tema"></button>
+  </header>
+
+  <main>
+    <!-- ============ BUSCAR ============ -->
+    <section class="view" id="view-buscar">
+      <div class="search-bar">
+        <span class="search-ic" data-icon="search" data-size="20"></span>
+        <input id="q" type="search" placeholder="Buscar item, ex.: broca 6mm…" autocomplete="off" />
+      </div>
+      <div class="chips" id="cat-chips"></div>
+      <button class="add-btn solo" id="btn-add-item"><span data-icon="plus" data-size="18"></span> Novo item</button>
+      <ul class="entries" id="results"></ul>
+    </section>
+
+    <!-- ============ CAIXAS ============ -->
+    <section class="view" id="view-caixas" hidden>
+      <div class="row-actions">
+        <button class="add-btn" id="btn-add-box"><span data-icon="plus" data-size="18"></span> Nova caixa</button>
+        <button class="add-btn ghost" id="btn-print-labels"><span data-icon="printer" data-size="18"></span> Etiquetas</button>
+      </div>
+      <ul class="entries" id="boxes-list"></ul>
+    </section>
+
+    <!-- ============ CONFIGURAÇÕES ============ -->
+    <section class="view" id="view-config" hidden>
+      <details class="card" open>
+        <summary>Categorias e grupos <span class="chev">▾</span></summary>
+        <div class="card-body">
+          <p class="hint">O <b>grupo</b> junta categorias parecidas (ex.: "Cabos" e "Material elétrico" → "Elétrica"). A sugestão de caixa usa o grupo para agrupar coisas afins.</p>
+          <div id="cat-list"></div>
+          <div class="sync-actions">
+            <button class="btn btn-ghost" id="cat-add">+ Categoria</button>
+            <button class="btn btn-primary" id="cat-save">Salvar</button>
+            <button class="btn btn-ghost" id="cat-reset">Padrão</button>
+          </div>
+          <div class="sync-status" id="cat-status"></div>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Sincronizar entre aparelhos <span class="chev">▾</span></summary>
+        <div class="card-body">
+          <p class="hint">Use um repositório GitHub <b>privado</b> só para os dados. O token fica salvo apenas neste aparelho.</p>
+          <div class="field"><label for="sy-repo">Repositório (usuario/repo)</label><input id="sy-repo" type="text" placeholder="mrosella/Catalogo-Casinha-dados" autocapitalize="none" autocomplete="off" /></div>
+          <div class="field"><label for="sy-token">Token de acesso</label><input id="sy-token" type="password" placeholder="ghp_…" autocomplete="off" /></div>
+          <div class="sync-actions">
+            <button class="btn btn-ghost" id="sy-test">Testar</button>
+            <button class="btn btn-primary" id="sy-now">Sincronizar agora</button>
+            <button class="btn btn-ghost" id="sy-clear">Limpar</button>
+          </div>
+          <div class="sync-status" id="sy-status"></div>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Backup <span class="chev">▾</span></summary>
+        <div class="card-body">
+          <p class="hint">Exporta/Importa todo o catálogo (caixas + itens + fotos) num arquivo .json.</p>
+          <div class="sync-actions">
+            <button class="btn btn-ghost" id="bk-export"><span data-icon="download" data-size="16"></span> Exportar</button>
+            <button class="btn btn-ghost" id="bk-import-btn">Importar</button>
+            <input id="bk-import" type="file" accept="application/json,.json" hidden />
+          </div>
+        </div>
+      </details>
+
+      <p class="app-footer"><span id="ft-lastsync"></span></p>
+    </section>
+  </main>
+
+  <!-- ============ MODAL: ITEM ============ -->
+  <div class="modal-backdrop" id="item-modal">
+    <div class="modal">
+      <h3 id="item-modal-title">Novo item</h3>
+      <div class="field"><label for="m-name">Nome do item</label><input id="m-name" type="text" placeholder="Ex.: Broca 6mm" autocapitalize="sentences" /></div>
+      <div class="row2">
+        <div class="field"><label for="m-categoria">Categoria</label><select id="m-categoria"></select></div>
+        <div class="field"><label>Tamanho</label>
+          <div class="size-group" id="m-size-group" data-value="">
+            <button type="button" class="size-btn" data-size="P">P</button>
+            <button type="button" class="size-btn" data-size="M">M</button>
+            <button type="button" class="size-btn" data-size="G">G</button>
+          </div>
+        </div>
+      </div>
+      <div class="field"><label for="m-box">Caixa</label><select id="m-box"></select></div>
+      <button type="button" class="suggest-chip" id="m-suggest" style="display:none"></button>
+      <div class="row2">
+        <div class="field"><label for="m-qty">Quantidade</label><input id="m-qty" type="number" inputmode="numeric" min="0" placeholder="1" /></div>
+        <div class="field"><label for="m-tags">Tags (palavras-chave)</label><input id="m-tags" type="text" placeholder="ex.: furadeira, metal" autocapitalize="none" /></div>
+      </div>
+      <div class="field"><label for="m-note">Observação</label><textarea id="m-note" rows="2" placeholder="opcional"></textarea></div>
+
+      <div class="field foto-attach">
+        <label>Foto</label>
+        <div class="foto-preview"><div id="m-photo-preview"></div>
+          <div class="foto-actions">
+            <button type="button" class="hist-btn" id="m-photo-cam"><span data-icon="camera" data-size="16"></span> Câmera</button>
+            <button type="button" class="hist-btn" id="m-photo-pick"><span data-icon="image" data-size="16"></span> Galeria</button>
+            <button type="button" class="hist-btn" id="m-photo-view" style="display:none"><span data-icon="eye" data-size="16"></span> Ver</button>
+            <button type="button" class="hist-btn danger" id="m-photo-remove" style="display:none">Remover</button>
+          </div>
+        </div>
+        <input id="m-photo-file" type="file" accept="image/*" capture="environment" hidden />
+        <input id="m-photo-import" type="file" accept="image/*" hidden />
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-danger-text" id="m-delete" style="display:none"><span data-icon="trash-2" data-size="18"></span></button>
+        <button class="btn btn-ghost" id="m-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="m-save">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: CAIXA ============ -->
+  <div class="modal-backdrop" id="box-modal">
+    <div class="modal">
+      <h3 id="bx-modal-title">Nova caixa</h3>
+      <div class="row2">
+        <div class="field"><label for="bx-code">Código</label><input id="bx-code" type="text" placeholder="C-01" autocapitalize="characters" /></div>
+        <div class="field"><label for="bx-name">Nome</label><input id="bx-name" type="text" placeholder="Ex.: Elétrica" autocapitalize="sentences" /></div>
+      </div>
+      <div class="field"><label for="bx-location">Local (onde está a caixa)</label><input id="bx-location" type="text" placeholder="Ex.: prateleira de cima" autocapitalize="sentences" /></div>
+      <div class="row2">
+        <div class="field"><label for="bx-group">Grupo principal</label><select id="bx-group"></select></div>
+        <div class="field"><label for="bx-size">Tamanho dos itens</label>
+          <select id="bx-size"><option value="">(automático)</option><option value="P">Pequenos</option><option value="M">Médios</option><option value="G">Grandes</option></select>
+        </div>
+      </div>
+      <div class="field"><label for="bx-note">Observação</label><textarea id="bx-note" rows="2" placeholder="opcional"></textarea></div>
+      <div class="modal-actions">
+        <button class="btn btn-danger-text" id="bx-delete" style="display:none"><span data-icon="trash-2" data-size="18"></span></button>
+        <button class="btn btn-ghost" id="bx-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="bx-save">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: DETALHE DA CAIXA ============ -->
+  <div class="modal-backdrop" id="box-detail">
+    <div class="modal">
+      <div class="bd-head">
+        <div><h3 id="bd-title" style="margin:0">Caixa</h3><div class="bd-sub" id="bd-sub"></div></div>
+        <button class="icon-btn" id="bd-close" aria-label="Fechar"><span data-icon="x" data-size="22"></span></button>
+      </div>
+      <ul class="entries" id="bd-items"></ul>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="bd-print"><span data-icon="qr-code" data-size="16"></span> Etiqueta</button>
+        <button class="btn btn-primary" id="bd-add"><span data-icon="plus" data-size="16"></span> Item nesta caixa</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div id="print-root"></div>
+
+  <!-- Bibliotecas (offline) -->
+  <script src="lib/qrcode.min.js"></script>
+  <!-- App (scripts clássicos, escopo global compartilhado; core primeiro, main por último) -->
+  <script src="js/core.js"></script>
+  <script src="js/idb.js"></script>
+  <script src="js/suggest.js"></script>
+  <script src="js/search.js"></script>
+  <script src="js/boxes.js"></script>
+  <script src="js/items.js"></script>
+  <script src="js/qr.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
