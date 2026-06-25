@@ -56,7 +56,19 @@
         <input id="q" type="search" placeholder="Buscar item, ex.: broca 6mm…" autocomplete="off" />
       </div>
       <div class="chips" id="cat-chips"></div>
-      <button class="add-btn solo" id="btn-add-item"><span data-icon="plus" data-size="18"></span> Novo item</button>
+      <div class="row-actions">
+        <button class="add-btn" id="btn-add-item"><span data-icon="plus" data-size="18"></span> Novo item</button>
+        <button class="add-btn ghost" id="btn-locate"><span data-icon="map-pin" data-size="18"></span> Onde guardar?</button>
+      </div>
+      <div class="sort-row">
+        <label for="sort" class="sort-lbl">Ordenar</label>
+        <select id="sort">
+          <option value="rec">Recentes</option>
+          <option value="vis">Vistos por último</option>
+          <option value="az">Nome (A–Z)</option>
+          <option value="cat">Categoria</option>
+        </select>
+      </div>
       <ul class="entries" id="results"></ul>
     </section>
 
@@ -64,9 +76,19 @@
     <section class="view" id="view-caixas" hidden>
       <div class="row-actions">
         <button class="add-btn" id="btn-add-box"><span data-icon="plus" data-size="18"></span> Nova caixa</button>
+        <button class="add-btn ghost" id="btn-scan"><span data-icon="qr-code" data-size="18"></span> Escanear</button>
         <button class="add-btn ghost" id="btn-print-labels"><span data-icon="printer" data-size="18"></span> Etiquetas</button>
       </div>
       <ul class="entries" id="boxes-list"></ul>
+
+      <details class="card" id="hist-card">
+        <summary>Histórico de movimentações <span class="chev">▾</span></summary>
+        <div class="card-body">
+          <p class="hint">O que entrou, saiu ou mudou de caixa. Útil quando você reorganiza.</p>
+          <ul class="hist-log" id="hist-list"></ul>
+          <div class="sync-actions"><button class="btn btn-ghost" id="hist-clear">Limpar histórico</button></div>
+        </div>
+      </details>
     </section>
 
     <!-- ============ CONFIGURAÇÕES ============ -->
@@ -200,6 +222,35 @@
     </div>
   </div>
 
+  <!-- ============ MODAL: ONDE GUARDAR? ============ -->
+  <div class="modal-backdrop" id="locate-modal">
+    <div class="modal">
+      <div class="bd-head">
+        <div><h3 style="margin:0">Onde guardar?</h3><div class="bd-sub">A caixa ideal para o item que está na sua mão</div></div>
+        <button class="icon-btn" id="loc-close" aria-label="Fechar"><span data-icon="x" data-size="22"></span></button>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="loc-cat">Categoria</label><select id="loc-cat"></select></div>
+        <div class="field"><label>Tamanho</label>
+          <div class="size-group" id="loc-size-group">
+            <button type="button" class="size-btn" data-size="P">P</button>
+            <button type="button" class="size-btn" data-size="M">M</button>
+            <button type="button" class="size-btn" data-size="G">G</button>
+          </div>
+        </div>
+      </div>
+      <div id="loc-result"></div>
+    </div>
+  </div>
+
+  <!-- ============ SCANNER DE QR ============ -->
+  <div class="scan-overlay" id="scan-overlay">
+    <video id="scan-video" playsinline muted></video>
+    <div class="scan-frame"></div>
+    <div class="scan-msg" id="scan-msg"></div>
+    <button class="btn btn-ghost scan-close" id="scan-close">Fechar</button>
+  </div>
+
   <div class="toast" id="toast"></div>
   <div id="print-root"></div>
 
@@ -212,6 +263,9 @@
   <script src="js/search.js"></script>
   <script src="js/boxes.js"></script>
   <script src="js/items.js"></script>
+  <script src="js/history.js"></script>
+  <script src="js/scan.js"></script>
+  <script src="js/locate.js"></script>
   <script src="js/qr.js"></script>
   <script src="js/sync.js"></script>
   <script src="js/ui.js"></script>

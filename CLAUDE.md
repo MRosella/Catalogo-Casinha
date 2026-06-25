@@ -18,11 +18,14 @@ por um repositório GitHub **privado**. Inspirado no app de Despesas (mesma arqu
 | `js/core.js` | `APP_VERSION` (bump!), chaves (`DB_NAME`/`THEME_KEY`/`SYNC_KEY`…), `SIZES`/`SIZE_ORDER`/`SIZE_LABEL`, categorias+grupo (`DEFAULT_CATEGORIAS`, `getCatConfig`/`getCategorias`/`grupoDaCategoria`/`getGrupos`), estado (`emptyState`/`loadState`(async, IndexedDB)/`normalizeState`/`saveState`(debounce)/`touchDoc`/`touchProfile`, `let state`), acessores (`boxById`/`itemsInBox`), utils (`$`/`todayISO`/`fmtDateBR`/`uid`/`normalizeText`/`escapeHtml`/`toast`), ícones (`icon`/`setupIcons`) |
 | `js/idb.js` | IndexedDB store `app` (`idb`/`idbPut`/`idbGet`/`idbDel`) — guarda o **estado inteiro** (fotos embutidas); `compressImage`/`blobToDataUrl`/`photoFromFile` (foto → `{data,w,h}`) |
 | `js/suggest.js` | **sugestão de caixa**: `boxProfile(box)` (grupo/tamanho dominante), `sizeCompat`, `suggestBox(item)` → `{box,score,reason}` ou `{createNew,newSeed}`, `suggestReason` |
-| `js/search.js` | **busca** (`searchItems` puro: nome/tags/categoria/obs/caixa, sem acento) + filtro por categoria (`renderCatChips`), `renderResults`, `itemCardHtml`/`thumbHtml`/`sizeBadge`, `setupSearchUI`; `searchQuery`/`searchCat` |
-| `js/boxes.js` | caixas: `renderBoxes`/`boxCardHtml`, modal (`openBoxModal`/`saveBox`/`deleteBox`), detalhe (`openBoxDetail`), `nextBoxCode`/`boxTitle`, `setupBoxUI`; `editingBoxId`/`detailBoxId` |
-| `js/items.js` | itens: modal (`openItemModal`/`saveItem`/`deleteItem`), tamanho P/M/G (`setSizeButtons`/`currentSize`), **chip de sugestão** (`refreshSuggestion`/`applySuggestion`), foto (`renderItemPhoto`/`onItemPhoto`), `setupItemUI`; `editingItemId`/`itemPhoto`/`lastSuggestion` |
+| `js/search.js` | **busca** (`searchItems` puro: nome/tags/categoria/obs/caixa, sem acento) + filtro por categoria (`renderCatChips`), **ordenação** (`sortResults`: rec/vis/az/cat) e **vistos por último** (`markViewed`/`recentViewed`, LOCAL em `-recent-v1`), `renderResults`, `itemCardHtml`/`thumbHtml`/`sizeBadge`, `setupSearchUI`; `searchQuery`/`searchCat`/`searchSort` |
+| `js/boxes.js` | caixas: `renderBoxes`/`boxCardHtml`, **ocupação** (`boxFullness`/`fillChipHtml`, usa `SUGGEST_FULL`), modal (`openBoxModal`/`saveBox`/`deleteBox`), detalhe (`openBoxDetail`), `nextBoxCode`/`boxTitle`, `setupBoxUI`; `editingBoxId`/`detailBoxId` |
+| `js/items.js` | itens: modal (`openItemModal`/`saveItem`/`deleteItem`), tamanho P/M/G (`setSizeButtons`/`currentSize`), **chip de sugestão** (`refreshSuggestion`/`applySuggestion`), foto (`renderItemPhoto`/`onItemPhoto`), `setupItemUI`; loga movimentações (`logEvent`) e marca `markViewed`; `editingItemId`/`itemPhoto`/`lastSuggestion` |
+| `js/history.js` | **histórico de movimentações** (log append-only sincronizado): `logEvent`/`boxLabelById`/`logText`/`renderHistory`/`clearHistory`/`setupHistoryUI`, `LOG_MAX` |
+| `js/scan.js` | **scanner de QR embutido** (câmera + `BarcodeDetector` nativo): `scanSupported`/`startScan`/`scanLoop`/`stopScan`/`parseBoxFromText`/`onScanHit`/`setupScanUI`; abre `openBoxDetail` ao ler etiqueta. Sem suporte → botão some (usa câmera nativa) |
+| `js/locate.js` | **"Onde guardar?"** (busca reversa): `openLocate`/`renderLocate`/`setupLocateUI`, reaproveita `suggestBox`+`boxProfile`; lista a caixa ideal + outras com o mesmo grupo, não cria item |
 | `js/qr.js` | QR + etiquetas: `appBaseUrl`/`boxQrUrl(id)` (URL `#box=<id>`), `qrDataUrl` (lib `qrcode`), `labelHtml`, `printLabels(boxes)` |
-| `js/sync.js` | sync GitHub privado (`ghGetFile`/`ghPutFile`/`ghCheckRepo`, b64utf8), `currentDoc`/`applyDoc`/`mergeDocs`/`mergeList` (last-write-wins + lápides), `syncNow`/`scheduleSync`, indicador/rodapé (`updateSyncIndicator`/`updateFooter`), `setDirty`/`isDirty`, `setupSyncUI` |
+| `js/sync.js` | sync GitHub privado (`ghGetFile`/`ghPutFile`/`ghCheckRepo`, b64utf8), `currentDoc`/`applyDoc`/`mergeDocs`/`mergeList` (last-write-wins + lápides), **`mergeLog`** (log: união por id + `meta.logClearedAt` + teto), `syncNow`/`scheduleSync`, indicador/rodapé (`updateSyncIndicator`/`updateFooter`), `setDirty`/`isDirty`, `setupSyncUI` |
 | `js/ui.js` | nav (`showView`/`setupNav`/`openDrawer`), selects (`populateCategorySelects`/`populateBoxSelects`/`populateGroupSelect`), editor de categorias (`renderCatEditor`/`saveCatEditor`/`setupCatUI`, `catDraft`), backup (`exportBackup`/`importBackupFile`/`setupBackupUI`) |
 | `js/render.js` | orquestrador: `render()` (chama `renderResults`+`renderBoxes`), `updateCounts` |
 | `js/main.js` | tema (`currentTheme`/`applyTheme`/`toggleTheme`/`setupTheme`), **deep-link** (`handleHash` → `#box=<id>` abre a caixa), `init` (async; registra `setup*`), SW (`setupServiceWorker`), conectividade — **carregado por último** |
@@ -48,14 +51,32 @@ por um repositório GitHub **privado**. Inspirado no app de Despesas (mesma arqu
 ```
 { boxes:[{id,code,name,location,note,mainGroup,sizeClass,updatedAt}],
   items:[{id,name,boxId,category,size('P'|'M'|'G'),qty,tags,note,photo:{data,w,h}|null,updatedAt}],
+  log:[{id,ts,kind:'move'|'add'|'remove',itemId,itemName,from,to}],  // histórico (append-only, teto LOG_MAX=200)
   config:{categorias:[{nome,grupo}]},     // grupo junta categorias afins
   tomb:{boxes:{id:ts},items:{id:ts}},      // lápides de deleção
-  meta:{updatedAt,profileUpdatedAt} }
+  meta:{updatedAt,profileUpdatedAt,logClearedAt} }  // logClearedAt: corte do log (limpar histórico), last-write-wins
 ```
 Merge de sync: caixas/itens por `id` (last-write-wins, `mergeList`); `config` por
-`profileUpdatedAt`. Lápides propagam deleções (>180 dias são descartadas).
+`profileUpdatedAt`. Lápides propagam deleções (>180 dias são descartadas). `log` por
+`mergeLog` (união por `id`, descarta `ts <= logClearedAt`, mantém os LOG_MAX mais novos).
 
 ## Pontos de atenção (fatos de arquitetura)
+- **Scanner de QR** (`js/scan.js`, botão `#btn-scan` na tela Caixas): usa `getUserMedia` +
+  `BarcodeDetector` (nativo no Chrome Android) num overlay (`#scan-overlay`/`#scan-video`).
+  `parseBoxFromText` extrai `#box=<id>` (ou id puro) e só aceita caixa existente → `openBoxDetail`.
+  **Sem `BarcodeDetector`** (iOS/desktop) o botão **some** (`setupScanUI`) — a câmera nativa do
+  celular ainda lê o QR (que é uma URL do app). Não vendoriza lib de leitura (regra 5).
+- **"Onde guardar?"** (`js/locate.js`, botão `#btn-locate` na busca): modal `#locate-modal` com
+  categoria+tamanho → `suggestBox` mostra a caixa ideal e `boxProfile` lista as outras caixas com o
+  mesmo grupo; **não cria/salva item**, só navega (`openBoxDetail`).
+- **Badge de ocupação** (`boxFullness`/`fillChipHtml` em `boxes.js`): cada caixa na lista mostra um
+  chip ok/quase-cheia/lotada com base em `SUGGEST_FULL` (mesmo limiar da sugestão).
+- **Ordenação da busca** (`sortResults`): rec (updatedAt) · vis (vistos por último, lista LOCAL
+  `-recent-v1` via `markViewed`, chamado em `openItemModal`) · az · cat. `<select id="sort">`.
+- **Histórico de movimentações** (`js/history.js`): `saveItem`/`deleteItem` chamam `logEvent`
+  (`move` quando muda de caixa, `add`, `remove`). Mostrado no card `#hist-card` (tela Caixas),
+  `render()` chama `renderHistory()`. Sincroniza (ver `mergeLog`); "Limpar" usa `meta.logClearedAt`
+  (last-write-wins) p/ não ressuscitar via merge.
 - **Estado no IndexedDB, não no localStorage:** as fotos ficam **embutidas** em
   `item.photo.data` (dataURL comprimido ~640px/0.55), então o estado é grande demais p/
   localStorage. `loadState`/`saveState` usam o store `app`. `localStorage` só guarda

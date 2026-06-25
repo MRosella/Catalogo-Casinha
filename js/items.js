@@ -10,6 +10,7 @@ let lastSuggestion = null;
 
 function openItemModal(item, presetBoxId) {
   editingItemId = item ? item.id : null;
+  if (item) markViewed(item.id);   // alimenta a ordenação "Vistos por último"
   $('item-modal-title').textContent = item ? 'Editar item' : 'Novo item';
   $('m-name').value = item ? (item.name || '') : '';
   populateCategorySelects();
@@ -88,6 +89,8 @@ function saveItem() {
   if (!name) { toast('Dê um nome ao item.'); return; }
   const now = Date.now();
   let it = editingItemId ? (state.items || []).find((x) => x.id === editingItemId) : null;
+  const isNew = !it;
+  const prevBoxId = isNew ? '' : (it.boxId || '');
   if (!it) { it = { id: uid() }; state.items.push(it); }
   it.name = name;
   it.category = $('m-categoria').value || '';
@@ -99,6 +102,9 @@ function saveItem() {
   if (itemPhoto.mode === 'set') it.photo = { data: itemPhoto.data, w: itemPhoto.w, h: itemPhoto.h };
   else if (itemPhoto.mode === 'remove') it.photo = null;
   it.updatedAt = now;
+  // histórico: cadastro novo ou mudança de caixa (reorganização)
+  if (isNew) logEvent('add', it, '', boxLabelById(it.boxId));
+  else if (prevBoxId !== (it.boxId || '')) logEvent('move', it, boxLabelById(prevBoxId), boxLabelById(it.boxId));
   touchDoc(); saveState();
   closeItemModal();
   render();
@@ -109,6 +115,8 @@ function deleteItem() {
   if (!editingItemId) return;
   if (!confirm('Excluir este item?')) return;
   const now = Date.now();
+  const it = (state.items || []).find((x) => x.id === editingItemId);
+  if (it) logEvent('remove', it, boxLabelById(it.boxId), '');
   state.items = state.items.filter((x) => x.id !== editingItemId);
   state.tomb.items[editingItemId] = now;
   touchDoc(); saveState();

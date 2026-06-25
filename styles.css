@@ -133,6 +133,20 @@ main { padding: 14px; max-width: 720px; margin: 0 auto; }
 .bx-loc { display: inline-flex; align-items: center; gap: 3px; }
 .empty-list { padding: 22px 16px; color: var(--muted); font-size: .9rem; text-align: center; }
 
+/* chip de ocupação da caixa (folga / quase cheia / lotada) */
+.bx-fill { flex: none; font-size: .72rem; font-weight: 800; padding: 4px 9px; border-radius: 20px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.bx-fill-ok { background: #e7f1ea; color: var(--green-dark); }
+.bx-fill-near { background: #fdf0d8; color: #a35a10; }
+.bx-fill-full { background: #f7dcd8; color: var(--danger); }
+:root[data-theme="dark"] .bx-fill-ok { background: #25382c; color: #9fd9b4; }
+:root[data-theme="dark"] .bx-fill-near { background: #3a2f16; color: #e6b15a; }
+:root[data-theme="dark"] .bx-fill-full { background: #3a201d; color: #e58d82; }
+
+/* barra de ordenação (busca) */
+.sort-row { display: flex; align-items: center; gap: 8px; margin: 2px 0 12px; }
+.sort-lbl { margin: 0; font-size: .76rem; color: var(--muted); font-weight: 700; flex: none; }
+.sort-row select { width: auto; flex: 1; padding: 8px 10px; font-size: .85rem; }
+
 .it-thumb { width: 46px; height: 46px; flex: none; border-radius: 10px; object-fit: cover; border: 1px solid var(--line); }
 .it-thumb-ph { display: inline-flex; align-items: center; justify-content: center; background: var(--bg); color: var(--muted); }
 
@@ -236,6 +250,38 @@ details.card[open] summary .chev { transform: rotate(180deg); }
 
 :focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { *, .view:not([hidden]) { animation: none !important; transition: none !important; } }
+
+/* ---------- Histórico de movimentações ---------- */
+.hist-log { list-style: none; margin: 6px 0 0; padding: 0; }
+.hist-row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--line); }
+.hist-row:last-child { border-bottom: none; }
+.hist-ic { flex: none; width: 26px; height: 26px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--bg); color: var(--muted); margin-top: 1px; }
+.hist-move .hist-ic { background: #e7f1ea; color: var(--green-dark); }
+.hist-add .hist-ic { background: #e7f1ea; color: var(--ok); }
+.hist-remove .hist-ic { background: #f7dcd8; color: var(--danger); }
+:root[data-theme="dark"] .hist-move .hist-ic, :root[data-theme="dark"] .hist-add .hist-ic { background: #25382c; color: #9fd9b4; }
+:root[data-theme="dark"] .hist-remove .hist-ic { background: #3a201d; color: #e58d82; }
+.hist-main { display: flex; flex-direction: column; min-width: 0; }
+.hist-txt { font-size: .85rem; line-height: 1.3; }
+.hist-when { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+
+/* ---------- "Onde guardar?" (sugestão no modal) ---------- */
+.loc-sug { display: block; width: 100%; text-align: left; border: 1px solid var(--green); background: #e9f4ec; color: var(--text); border-radius: 12px; padding: 12px 14px; margin: 4px 0 10px; cursor: pointer; }
+.loc-sug.loc-new { border-style: dashed; border-color: var(--amber); background: #fff7ec; cursor: default; }
+:root[data-theme="dark"] .loc-sug { background: #1f3326; }
+:root[data-theme="dark"] .loc-sug.loc-new { background: #2c2616; }
+.loc-sug-h { font-weight: 800; font-size: .95rem; display: flex; align-items: center; gap: 8px; color: var(--green-dark); }
+.loc-sug.loc-new .loc-sug-h { color: #a35a10; }
+.loc-sug-r { font-size: .76rem; color: var(--muted); margin-top: 3px; }
+.loc-others-h { font-size: .74rem; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
+
+/* ---------- Scanner de QR (overlay) ---------- */
+.scan-overlay { position: fixed; inset: 0; z-index: 95; background: #000; display: none; align-items: center; justify-content: center; }
+.scan-overlay.open { display: flex; }
+.scan-overlay video { width: 100%; height: 100%; object-fit: cover; }
+.scan-frame { position: absolute; width: 64vw; max-width: 280px; aspect-ratio: 1; border: 3px solid rgba(255, 255, 255, .9); border-radius: 18px; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .45); }
+.scan-msg { position: absolute; bottom: 22%; left: 0; right: 0; text-align: center; color: #fff; font-size: .9rem; text-shadow: 0 1px 3px rgba(0, 0, 0, .8); padding: 0 24px; }
+.scan-close { position: absolute; bottom: max(24px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: auto; padding: 12px 28px; }
 
 /* ---------- Etiquetas (impressão) ---------- */
 #print-root { display: none; }

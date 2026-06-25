@@ -6,13 +6,14 @@
    entre dispositivos por um repositório GitHub privado.
    ============================================================ */
 
-const APP_VERSION = 'v1';                 // manter igual ao CACHE em sw.js
+const APP_VERSION = 'v2';                 // manter igual ao CACHE em sw.js
 const DB_NAME = 'catalogo-casinha';       // IndexedDB
 const STATE_KEY = 'state';                // chave do estado dentro do store 'app'
 const THEME_KEY = 'catalogo-casinha-theme-v1';
 const SYNC_KEY = 'catalogo-casinha-sync-v1';
 const LASTSYNC_KEY = 'catalogo-casinha-lastsync-v1';
 const DIRTY_KEY = 'catalogo-casinha-dirty-v1';
+const RECENT_KEY = 'catalogo-casinha-recent-v1';   // ids de itens abertos por último (LOCAL, p/ ordenar "Vistos")
 
 /* Tamanhos físicos do item (P/M/G) — usados pela sugestão de caixa. */
 const SIZES = [
@@ -59,9 +60,10 @@ function emptyState() {
   return {
     boxes: [],     // { id, code, name, location, note, mainGroup, sizeClass, updatedAt }
     items: [],     // { id, name, boxId, category, size, qty, tags, note, photo:{data,w,h}|null, updatedAt }
+    log: [],       // histórico de movimentações: { id, ts, kind:'move'|'add'|'remove', itemId, itemName, from, to }
     config: { categorias: DEFAULT_CATEGORIAS.map((c) => Object.assign({}, c)) },
     tomb: { boxes: {}, items: {} },   // lápides de deleção: id -> ts
-    meta: { updatedAt: 0, profileUpdatedAt: 0 }
+    meta: { updatedAt: 0, profileUpdatedAt: 0, logClearedAt: 0 }
   };
 }
 
@@ -83,9 +85,10 @@ function normalizeState(s) {
   const st = Object.assign(base, s);
   st.boxes = (Array.isArray(s.boxes) ? s.boxes : []).map((b) => Object.assign({ updatedAt: Date.now() }, b));
   st.items = (Array.isArray(s.items) ? s.items : []).map((e) => Object.assign({ updatedAt: Date.now() }, e));
+  st.log = Array.isArray(s.log) ? s.log : [];
   st.config = normalizeCatConfig(s.config);
   st.tomb = { boxes: (s.tomb && s.tomb.boxes) || {}, items: (s.tomb && s.tomb.items) || {} };
-  st.meta = Object.assign({ updatedAt: 0, profileUpdatedAt: 0 }, s.meta || {});
+  st.meta = Object.assign({ updatedAt: 0, profileUpdatedAt: 0, logClearedAt: 0 }, s.meta || {});
   return st;
 }
 

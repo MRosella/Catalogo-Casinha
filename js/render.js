@@ -6,6 +6,7 @@
 function render() {
   renderResults();
   renderBoxes();
+  if (typeof renderHistory === 'function') renderHistory();
   updateCounts();
 }
 

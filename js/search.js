@@ -4,6 +4,27 @@
    ============================================================ */
 let searchQuery = '';
 let searchCat = '';   // '' = todas
+let searchSort = 'rec';   // rec=recentes(updatedAt) · vis=vistos por último · az=nome · cat=categoria
+
+/* "Vistos por último": lista LOCAL de ids de itens abertos (não sincroniza). */
+function recentViewed() { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) { return []; } }
+function markViewed(id) {
+  if (!id) return;
+  let r = recentViewed().filter((x) => x !== id);
+  r.unshift(id);
+  if (r.length > 40) r = r.slice(0, 40);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(r)); } catch (e) {}
+}
+
+/* Ordena a lista de resultados conforme searchSort. Função pura. */
+function sortResults(list) {
+  const arr = list.slice();
+  if (searchSort === 'az') arr.sort((a, b) => normalizeText(a.name).localeCompare(normalizeText(b.name)));
+  else if (searchSort === 'cat') arr.sort((a, b) => normalizeText(a.category).localeCompare(normalizeText(b.category)) || normalizeText(a.name).localeCompare(normalizeText(b.name)));
+  else if (searchSort === 'vis') { const r = recentViewed(); const ix = (id) => { const i = r.indexOf(id); return i < 0 ? 9999 : i; }; arr.sort((a, b) => ix(a.id) - ix(b.id) || (b.updatedAt || 0) - (a.updatedAt || 0)); }
+  else arr.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  return arr;
+}
 
 /* Filtra os itens por termos (nome/tags/categoria/observação/caixa) e categoria.
    Ignora acentos e caixa (maiúsc/minúsc). Função pura → testada em logic.html. */
@@ -61,7 +82,7 @@ function renderCatChips() {
 function renderResults() {
   const list = $('results'); if (!list) return;
   renderCatChips();
-  const res = searchItems(searchQuery, searchCat).slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const res = sortResults(searchItems(searchQuery, searchCat));
   if (!res.length) {
     const total = (state.items || []).length;
     list.innerHTML = `<li class="empty-list">${total ? 'Nada encontrado para essa busca.' : 'Nenhum item ainda. Toque em “Novo item” para começar.'}</li>`;
@@ -80,6 +101,8 @@ function setupSearchUI() {
     searchCat = b.dataset.cat || '';
     renderResults();
   });
+  const sort = $('sort');
+  if (sort) sort.addEventListener('change', () => { searchSort = sort.value || 'rec'; renderResults(); });
   const list = $('results');
   if (list) list.addEventListener('click', (e) => {
     const li = e.target.closest('[data-item]'); if (!li) return;

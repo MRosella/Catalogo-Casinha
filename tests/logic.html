@@ -10,6 +10,9 @@
 <script src="../js/search.js"></script>
 <script src="../js/boxes.js"></script>
 <script src="../js/items.js"></script>
+<script src="../js/history.js"></script>
+<script src="../js/scan.js"></script>
+<script src="../js/locate.js"></script>
 <script src="../js/qr.js"></script>
 <script src="../js/sync.js"></script>
 <script src="../js/ui.js"></script>
@@ -74,6 +77,33 @@ ok('lápide remove item deletado', m2.items.length===0);
 
 /* ---------- boxQrUrl ---------- */
 ok('boxQrUrl termina com #box=<id>', /#box=abc$/.test(boxQrUrl('abc')));
+
+/* ---------- parseBoxFromText (scanner) ---------- */
+state = { config:CFG, boxes:[{id:'b1',code:'C-01'}], items:[], tomb:{boxes:{},items:{}}, meta:{} };
+ok('parseBoxFromText extrai id de URL #box=', parseBoxFromText('https://x/app/#box=b1') === 'b1');
+ok('parseBoxFromText aceita id puro', parseBoxFromText('b1') === 'b1');
+ok('parseBoxFromText ignora caixa inexistente', parseBoxFromText('#box=zzz') === null);
+
+/* ---------- boxFullness (ocupação) ---------- */
+ok('boxFullness ok p/ poucos itens', boxFullness(3).cls === 'ok');
+ok('boxFullness lotada >= SUGGEST_FULL', boxFullness(SUGGEST_FULL).cls === 'full');
+ok('boxFullness quase cheia em ~80%', boxFullness(Math.round(SUGGEST_FULL*0.8)).cls === 'near');
+
+/* ---------- sortResults (ordenação) ---------- */
+state = { config:CFG, boxes:[], items:[
+  { id:'i1', name:'Zebra', category:'Jardinagem', updatedAt:100 },
+  { id:'i2', name:'Alfa', category:'Ferramentas manuais', updatedAt:200 }
+], tomb:{boxes:{},items:{}}, meta:{} };
+searchSort='rec'; ok('sort recentes (updatedAt desc)', sortResults(state.items)[0].id==='i2');
+searchSort='az';  ok('sort A-Z por nome', sortResults(state.items)[0].id==='i2');
+searchSort='rec';
+
+/* ---------- mergeLog (histórico: união + clearedAt + teto) ---------- */
+var L1 = { log:[{id:'e1',ts:1000},{id:'e2',ts:2000}], meta:{} };
+var L2 = { log:[{id:'e2',ts:2000},{id:'e3',ts:3000}], meta:{} };
+var ml = mergeLog(L1, L2, 0);
+ok('mergeLog une por id (3 eventos)', ml.length===3);
+ok('mergeLog clearedAt corta antigos', mergeLog(L1, L2, 2500).length===1 && mergeLog(L1,L2,2500)[0].id==='e3');
 
 out.push('ERRORS: ' + (window.__errs.length ? window.__errs.join(' | ') : 'none'));
 out.push((fail || window.__errs.length) ? 'RESULT: FAIL' : 'RESULT: PASS');

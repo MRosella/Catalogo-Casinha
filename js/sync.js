@@ -91,9 +91,10 @@ function currentDoc() {
   return {
     boxes: (state.boxes || []).map((b) => Object.assign({}, b)),
     items: (state.items || []).map((e) => Object.assign({}, e)),
+    log: (state.log || []).map((e) => Object.assign({}, e)),
     config: { categorias: getCatConfig().map((c) => Object.assign({}, c)) },
     tomb: { boxes: Object.assign({}, state.tomb.boxes), items: Object.assign({}, state.tomb.items) },
-    meta: Object.assign({ updatedAt: 0, profileUpdatedAt: 0 }, state.meta)
+    meta: Object.assign({ updatedAt: 0, profileUpdatedAt: 0, logClearedAt: 0 }, state.meta)
   };
 }
 
@@ -101,9 +102,10 @@ function applyDoc(doc) {
   applyingRemote = true;
   state.boxes = Array.isArray(doc.boxes) ? doc.boxes : [];
   state.items = Array.isArray(doc.items) ? doc.items : [];
+  state.log = Array.isArray(doc.log) ? doc.log : [];
   state.config = normalizeCatConfig(doc.config);
   state.tomb = { boxes: (doc.tomb && doc.tomb.boxes) || {}, items: (doc.tomb && doc.tomb.items) || {} };
-  state.meta = Object.assign({ updatedAt: 0, profileUpdatedAt: 0 }, doc.meta || {});
+  state.meta = Object.assign({ updatedAt: 0, profileUpdatedAt: 0, logClearedAt: 0 }, doc.meta || {});
   saveState();
   render();
   populateCategorySelects();
@@ -125,13 +127,26 @@ function mergeList(key, a, b, outTomb) {
   return list;
 }
 
+/* merge do log (append-only): união por id, corta o que é anterior ao
+   logClearedAt e mantém os LOG_MAX mais recentes. */
+function mergeLog(a, b, clearedAt) {
+  const map = {};
+  for (const src of [a, b]) for (const e of (src.log || [])) if (e && e.id) map[e.id] = e;
+  let list = Object.keys(map).map((k) => map[k]).filter((e) => (e.ts || 0) > clearedAt);
+  list.sort((x, y) => (x.ts || 0) - (y.ts || 0));
+  if (list.length > LOG_MAX) list = list.slice(-LOG_MAX);
+  return list;
+}
+
 function mergeDocs(a, b) {
   const pa = (a.meta && a.meta.profileUpdatedAt) || 0, pb = (b.meta && b.meta.profileUpdatedAt) || 0;
   const p = pb > pa ? b : a;     // config: o mais recente vence
   const out = { config: normalizeCatConfig(p.config), tomb: { boxes: {}, items: {} } };
   out.boxes = mergeList('boxes', a, b, out.tomb);
   out.items = mergeList('items', a, b, out.tomb);
-  out.meta = { updatedAt: Math.max((a.meta && a.meta.updatedAt) || 0, (b.meta && b.meta.updatedAt) || 0), profileUpdatedAt: Math.max(pa, pb) };
+  const clearedAt = Math.max((a.meta && a.meta.logClearedAt) || 0, (b.meta && b.meta.logClearedAt) || 0);
+  out.log = mergeLog(a, b, clearedAt);
+  out.meta = { updatedAt: Math.max((a.meta && a.meta.updatedAt) || 0, (b.meta && b.meta.updatedAt) || 0), profileUpdatedAt: Math.max(pa, pb), logClearedAt: clearedAt };
   return out;
 }
 

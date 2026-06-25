@@ -15,6 +15,21 @@ function nextBoxCode() {
 
 function boxTitle(b) { return (b.code ? b.code : '') + (b.name ? (b.code ? ' · ' : '') + b.name : '') || '(sem nome)'; }
 
+/* Estado de ocupação de uma caixa (usa o mesmo SUGGEST_FULL da sugestão):
+   ok (com folga) · near (≥80% cheia) · full (lotada). */
+function boxFullness(count) {
+  if (count >= SUGGEST_FULL) return { cls: 'full', label: 'Lotada' };
+  if (count >= Math.round(SUGGEST_FULL * 0.8)) return { cls: 'near', label: 'Quase cheia' };
+  return { cls: 'ok', label: count + (count === 1 ? ' item' : ' itens') };
+}
+
+/* Chip de ocupação p/ a lista de caixas. */
+function fillChipHtml(count) {
+  const f = boxFullness(count);
+  const ic = f.cls === 'ok' ? '' : icon('alert-triangle', 12) + ' ';
+  return `<span class="bx-fill bx-fill-${f.cls}">${ic}${escapeHtml(f.label)}</span>`;
+}
+
 /* ---------- Lista de caixas (tela Caixas) ---------- */
 function boxCardHtml(b) {
   const prof = boxProfile(b);
@@ -24,8 +39,9 @@ function boxCardHtml(b) {
     <span class="it-thumb it-thumb-ph" aria-hidden="true">${icon('box', 22)}</span>
     <div class="e-main">
       <div class="e-desc">${escapeHtml(boxTitle(b))}</div>
-      <div class="e-meta">${prof.count} ${prof.count === 1 ? 'item' : 'itens'} · ${escapeHtml(grp)} ${loc}</div>
+      <div class="e-meta">${escapeHtml(grp)} ${loc}</div>
     </div>
+    ${fillChipHtml(prof.count)}
     <button class="qbtn bx-edit" data-edit="${b.id}" aria-label="Editar caixa">${icon('edit', 18)}</button>
   </li>`;
 }

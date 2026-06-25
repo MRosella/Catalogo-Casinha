@@ -52,6 +52,9 @@ async function init() {
   setupSearchUI();
   setupBoxUI();
   setupItemUI();
+  setupScanUI();
+  setupLocateUI();
+  setupHistoryUI();
   setupCatUI();
   setupSyncUI();
   setupBackupUI();
