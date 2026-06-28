@@ -164,6 +164,7 @@ function setupSearchUI() {
     const qs = e.target.closest('[data-qsub]'); if (qs) { e.stopPropagation(); bumpQty(qs.dataset.qsub, -1); return; }
     const tg = e.target.closest('[data-toggleout]');
     if (tg) { e.stopPropagation(); toggleItemOut(tg.dataset.toggleout); return; }
+    if (openListThumb(e)) return;
     const li = e.target.closest('[data-item]'); if (!li) return;
     const it = (state.items || []).find((x) => x.id === li.dataset.item);
     if (it) openItemModal(it);

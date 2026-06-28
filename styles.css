@@ -55,6 +55,13 @@ svg { display: inline-block; vertical-align: middle; }
 .sync-ind.spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* barra de progresso da sincronização (some fora da sync) */
+.sync-prog { display: inline-flex; align-items: center; gap: 6px; }
+.sync-prog[hidden] { display: none; }
+.sync-prog-bar { width: 48px; height: 5px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.sync-prog-fill { height: 100%; width: 0; background: var(--green); border-radius: 999px; transition: width .3s ease; }
+.sync-prog-pct { font-size: .72rem; color: var(--muted); min-width: 30px; font-variant-numeric: tabular-nums; }
+
 /* ---------- Barra de abas (inferior) ---------- */
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;

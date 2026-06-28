@@ -186,6 +186,21 @@ function setupLightboxUI() {
   lb.addEventListener('click', (e) => { if (e.target === lb || e.target.id === 'lb-img') closeLightbox(); });
 }
 
+/* Clique numa miniatura da lista: abre só a foto no lightbox (sem abrir o item).
+   Retorna true se tratou (havia miniatura com foto); false p/ cair no openItemModal. */
+function openListThumb(e) {
+  const thumb = e.target.closest('.it-thumb'); if (!thumb) return false;
+  const li = e.target.closest('[data-item]'); if (!li) return false;
+  const it = (state.items || []).find((x) => x.id === li.dataset.item);
+  if (!it || !it.photo) return false;   // sem foto: miniatura genérica abre o item
+  e.stopPropagation();
+  const src = thumb.tagName === 'IMG' ? thumb.getAttribute('src') : null;
+  if (src) openLightbox(src);
+  else if (it.photo.ref) resolvePhotoSrc(it.photo.ref).then((s) => { if (s) openLightbox(s); });
+  else if (it.photo.data) openLightbox(it.photo.data);
+  return true;
+}
+
 function setupItemUI() {
   $('m-save').addEventListener('click', saveItem);
   $('m-cancel').addEventListener('click', closeItemModal);

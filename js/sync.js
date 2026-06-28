@@ -32,6 +32,16 @@ function setSyncStatus(msg, kind) {
   el.textContent = msg; el.className = 'sync-status' + (kind ? ' ' + kind : '');
 }
 
+/* barra de progresso no cabeçalho: pct numérico mostra/atualiza; null esconde. */
+function setSyncProgress(pct) {
+  const wrap = $('sync-prog'); if (!wrap) return;
+  if (pct == null) { wrap.hidden = true; return; }
+  const p = Math.max(0, Math.min(100, Math.round(pct)));
+  wrap.hidden = false;
+  const fill = $('sync-prog-fill'); if (fill) fill.style.width = p + '%';
+  const lbl = $('sync-prog-pct'); if (lbl) lbl.textContent = p + '%';
+}
+
 /* ícone no cabeçalho: ✓ sincronizado · ⟳ pendente/sincronizando · ⚠ offline */
 function updateSyncIndicator() {
   const el = $('sync-ind'); if (!el) return;
@@ -143,20 +153,26 @@ async function ghDeletePhoto(cfg, ref, sha) {
 
 /* Reconcilia as fotos com o repo (1 listagem): envia as referenciadas que faltam
    e apaga as órfãs (sem nenhum item dono no doc atual). Roda após o push. */
-async function syncPhotos(cfg) {
+async function syncPhotos(cfg, onProgress) {
   let repo;
-  try { repo = await ghListPhotos(cfg); } catch (e) { console.warn('ghListPhotos falhou', e); return; }
+  try { repo = await ghListPhotos(cfg); } catch (e) { console.warn('ghListPhotos falhou', e); if (onProgress) onProgress(1); return; }
   const refs = referencedRefs();
-  for (const ref of refs) {                          // upload: referenciada, local, ausente do repo
-    if (repo[ref]) continue;
+  const uploads = [...refs].filter((ref) => !repo[ref]);   // referenciada, local, ausente do repo
+  const deletes = Object.keys(repo).filter((ref) => !refs.has(ref));   // no repo mas sem dono no doc atual
+  const total = uploads.length + deletes.length;
+  let done = 0;
+  const tick = () => { done++; if (onProgress && total) onProgress(done / total); };
+  for (const ref of uploads) {
     try { const data = await photoStoreGet(ref); if (data) await ghPutPhoto(cfg, ref, data); }
     catch (e) { console.warn('upload de foto falhou', ref, e); }
+    tick();
   }
-  for (const ref in repo) {                           // GC: no repo mas sem dono no doc atual
-    if (refs.has(ref)) continue;
+  for (const ref of deletes) {                          // GC das órfãs
     try { await ghDeletePhoto(cfg, ref, repo[ref]); }
     catch (e) { console.warn('GC de foto falhou', ref, e); }
+    tick();
   }
+  if (onProgress) onProgress(1);
 }
 
 /* ---- documento sincronizado (snapshot + merge) ---- */
@@ -236,13 +252,15 @@ async function syncNow(silent) {
   if (!cfg.repo || !cfg.token) { if (!silent) setSyncStatus('Configure o repositório e o token.', 'warn'); return; }
   if (!navigator.onLine) { setSyncStatus('Offline — sincroniza quando a conexão voltar.', 'warn'); updateSyncIndicator(); return; }
   if (syncing) return;
-  syncing = true; updateSyncIndicator(); setSyncStatus('Sincronizando…');
+  syncing = true; updateSyncIndicator(); setSyncStatus('Sincronizando…'); setSyncProgress(5);
   try {
     const remote = await ghGetFile(cfg);
+    setSyncProgress(20);
     let merged, sha;
     if (!remote.exists) { merged = currentDoc(); sha = null; }
     else { merged = mergeDocs(currentDoc(), remote.data); sha = remote.sha; }
     applyDoc(merged);
+    setSyncProgress(35);
     const changed = !remote.exists || JSON.stringify(merged) !== JSON.stringify(remote.data);
     if (changed) {
       try { await ghPutFile(cfg, merged, sha); }
@@ -251,13 +269,15 @@ async function syncNow(silent) {
         else { throw e; }
       }
     }
-    try { await syncPhotos(cfg); } catch (e) { console.warn('syncPhotos', e); }   // fotos: não derruba o sync
+    setSyncProgress(50);
+    try { await syncPhotos(cfg, (f) => setSyncProgress(50 + f * 48)); } catch (e) { console.warn('syncPhotos', e); }   // fotos: não derruba o sync
+    setSyncProgress(100);
     setDirty(false); setLastSync(Date.now()); updateFooter();
     setSyncStatus('Sincronizado • ' + new Date().toLocaleString('pt-BR'), 'ok');
   } catch (e) {
     console.error(e);
     setSyncStatus('Erro: ' + e.message + (isDirty() ? ' (alterações pendentes mantidas)' : ''), 'err');
-  } finally { syncing = false; updateSyncIndicator(); }
+  } finally { syncing = false; updateSyncIndicator(); setTimeout(() => { if (!syncing) setSyncProgress(null); }, 600); }
 }
 
 function setupSyncUI() {
