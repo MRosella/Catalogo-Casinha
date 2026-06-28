@@ -16,17 +16,18 @@ por um repositório GitHub **privado**. Inspirado no app de Despesas (mesma arqu
 | Arquivo | Conteúdo |
 |---|---|
 | `js/core.js` | `APP_VERSION` (bump!), chaves (`DB_NAME`/`THEME_KEY`/`SYNC_KEY`…), `SIZES`/`SIZE_ORDER`/`SIZE_LABEL`, categorias+grupo (`DEFAULT_CATEGORIAS`, `getCatConfig`/`getCategorias`/`grupoDaCategoria`/`getGrupos`), estado (`emptyState`/`loadState`(async, IndexedDB)/`normalizeState`/`saveState`(debounce)/`touchDoc`/`touchProfile`, `let state`), acessores (`boxById`/`itemsInBox`), utils (`$`/`todayISO`/`fmtDateBR`/`uid`/`normalizeText`/`escapeHtml`/`toast`), ícones (`icon`/`setupIcons`) |
-| `js/idb.js` | IndexedDB store `app` (`idb`/`idbPut`/`idbGet`/`idbDel`) — guarda o **estado inteiro** (fotos embutidas); `compressImage`/`blobToDataUrl`/`photoFromFile` (foto → `{data,w,h}`) |
-| `js/suggest.js` | **sugestão de caixa**: `boxProfile(box)` (grupo/tamanho dominante), `sizeCompat`, `suggestBox(item)` → `{box,score,reason}` ou `{createNew,newSeed}`, `suggestReason` |
+| `js/idb.js` | IndexedDB **v2** (`idb`/`idbPut`/`idbGet`/`idbDel`): store `app` (estado, **sem** as fotos) + store `photos` (`photoStoreGet`/`Put`/`Has`/`Keys`, chave=ref→dataURL); `compressImage`(512px)/`blobToDataUrl`/`photoFromFile` |
+| `js/photos.js` | **fotos fora do estado** (escala 1000+): `photoRef`/`photoHashJs` (ref por conteúdo, SHA-256/fallback), `savePhoto`, `resolvePhotoSrc` (mem→store→baixa do repo), `hydratePhotos` (thumbs sob demanda, IntersectionObserver), `referencedRefs`, `migrateLocalPhotos` (move inline legado→store, idempotente) |
+| `js/suggest.js` | **sugestão de caixa**: `boxProfile(box)` (grupo/tamanho dominante), `sizeCompat`, `suggestBox(item)` → `{box,score,reason}` ou `{createNew,newSeed}` (folga usa `boxCapacity`), `suggestReason` |
 | `js/search.js` | **busca** (`searchItems` puro: nome/tags/categoria/obs/caixa, sem acento) + filtro por categoria (`renderCatChips`), **ordenação** (`sortResults`: rec/vis/az/cat) e **vistos por último** (`markViewed`/`recentViewed`, LOCAL em `-recent-v1`), `renderResults`, `itemCardHtml`/`thumbHtml`/`sizeBadge`, `setupSearchUI`; `searchQuery`/`searchCat`/`searchSort` |
-| `js/boxes.js` | caixas: `renderBoxes`/`boxCardHtml`, **ocupação** (`boxFullness`/`fillChipHtml`, usa `SUGGEST_FULL`), modal (`openBoxModal`/`saveBox`/`deleteBox`), detalhe (`openBoxDetail`), `nextBoxCode`/`boxTitle`, `setupBoxUI`; `editingBoxId`/`detailBoxId` |
+| `js/boxes.js` | caixas: `renderBoxes`/`boxCardHtml`, **ocupação por capacidade da caixa** (`boxCapacity`/`boxFullness(count,cap)`/`fillChipHtml`/`fillBarHtml`; `BOX_CAP_MIN/MAX`), **slider de espaço** (`updateCapHint`), modal (`openBoxModal`/`saveBox`/`deleteBox`), detalhe (`openBoxDetail`), `nextBoxCode`/`boxTitle`, `setupBoxUI`; `editingBoxId`/`detailBoxId` |
 | `js/items.js` | itens: modal (`openItemModal`/`saveItem`/`deleteItem`), tamanho P/M/G (`setSizeButtons`/`currentSize`), **chip de sugestão** (`refreshSuggestion`/`applySuggestion`), foto (`renderItemPhoto`/`onItemPhoto`), `setupItemUI`; loga movimentações (`logEvent`) e marca `markViewed`; `editingItemId`/`itemPhoto`/`lastSuggestion` |
 | `js/history.js` | **histórico de movimentações** (log append-only sincronizado): `logEvent`/`boxLabelById`/`logText`/`renderHistory`/`clearHistory`/`setupHistoryUI`, `LOG_MAX` |
 | `js/scan.js` | **scanner de QR embutido** (câmera + `BarcodeDetector` nativo): `scanSupported`/`startScan`/`scanLoop`/`stopScan`/`parseBoxFromText`/`onScanHit`/`setupScanUI`; abre `openBoxDetail` ao ler etiqueta. Sem suporte → botão some (usa câmera nativa) |
 | `js/locate.js` | **"Onde guardar?"** (busca reversa): `openLocate`/`renderLocate`/`setupLocateUI`, reaproveita `suggestBox`+`boxProfile`; lista a caixa ideal + outras com o mesmo grupo, não cria item |
 | `js/qr.js` | QR + etiquetas: `appBaseUrl`/`boxQrUrl(id)` (URL `#box=<id>`), `qrDataUrl` (lib `qrcode`), `labelHtml`, `printLabels(boxes)` |
-| `js/sync.js` | sync GitHub privado (`ghGetFile`/`ghPutFile`/`ghCheckRepo`, b64utf8), `currentDoc`/`applyDoc`/`mergeDocs`/`mergeList` (last-write-wins + lápides), **`mergeLog`** (log: união por id + `meta.logClearedAt` + teto), `syncNow`/`scheduleSync`, indicador/rodapé (`updateSyncIndicator`/`updateFooter`), `setDirty`/`isDirty`, `setupSyncUI` |
-| `js/ui.js` | nav (`showView`/`setupNav`/`openDrawer`), selects (`populateCategorySelects`/`populateBoxSelects`/`populateGroupSelect`), editor de categorias (`renderCatEditor`/`saveCatEditor`/`setupCatUI`, `catDraft`), backup (`exportBackup`/`importBackupFile`/`setupBackupUI`) |
+| `js/sync.js` | sync GitHub privado (`ghGetFile`/`ghPutFile`/`ghCheckRepo`, b64utf8; `ghGetFile` faz fallback de **blob** p/ `catalogo.json` >1MB), **fotos no repo** (`photoRepoPath`, `ghPutPhoto`/`ghGetPhoto`/`ghListPhotos`/`ghDeletePhoto`, `syncPhotos`: 1 listagem → envia faltantes + **GC de órfãs**), `currentDoc`/`applyDoc`/`mergeDocs`/`mergeList` (last-write-wins + lápides), **`mergeLog`**, `syncNow`/`scheduleSync`, `updateSyncIndicator`/`updateFooter`, `setDirty`/`isDirty`, `setupSyncUI` |
+| `js/ui.js` | nav (`showView`/`setupNav`/`openDrawer`), selects (`populateCategorySelects`/`populateBoxSelects`/`populateGroupSelect`), editor de categorias (`renderCatEditor`/`saveCatEditor`/`setupCatUI`, `catDraft`), backup **auto-contido** (`exportBackup` re-embute fotos / `importBackupFile` → `migrateLocalPhotos`/`setupBackupUI`) |
 | `js/render.js` | orquestrador: `render()` (chama `renderResults`+`renderBoxes`), `updateCounts` |
 | `js/main.js` | tema (`currentTheme`/`applyTheme`/`toggleTheme`/`setupTheme`), **deep-link** (`handleHash` → `#box=<id>` abre a caixa), `init` (async; registra `setup*`), SW (`setupServiceWorker`), conectividade — **carregado por último** |
 | `index.html` | 3 telas (`#view-buscar`/`#view-caixas`/`#view-config`) + modais (`#item-modal`/`#box-modal`/`#box-detail`); carrega `lib/qrcode.min.js` e depois `js/*` na ordem |
@@ -49,8 +50,8 @@ por um repositório GitHub **privado**. Inspirado no app de Despesas (mesma arqu
 
 ## Forma do estado (`emptyState` em `js/core.js`)
 ```
-{ boxes:[{id,code,name,location,note,mainGroup,sizeClass,updatedAt}],
-  items:[{id,name,boxId,category,size('P'|'M'|'G'),qty,tags,note,photo:{data,w,h}|null,updatedAt}],
+{ boxes:[{id,code,name,location,note,mainGroup,sizeClass,capacity?,updatedAt}],  // capacity = espaço (itens até lotar); ausente = SUGGEST_FULL
+  items:[{id,name,boxId,category,size('P'|'M'|'G'),qty,tags,note,photo:{ref,w,h}|null,updatedAt}],  // photo.ref = arquivo photos/<ref>.jpg; {data,w,h} legado é migrado p/ ref
   log:[{id,ts,kind:'move'|'add'|'remove',itemId,itemName,from,to}],  // histórico (append-only, teto LOG_MAX=200)
   config:{categorias:[{nome,grupo}]},     // grupo junta categorias afins
   tomb:{boxes:{id:ts},items:{id:ts}},      // lápides de deleção
@@ -61,6 +62,20 @@ Merge de sync: caixas/itens por `id` (last-write-wins, `mergeList`); `config` po
 `mergeLog` (união por `id`, descarta `ts <= logClearedAt`, mantém os LOG_MAX mais novos).
 
 ## Pontos de atenção (fatos de arquitetura)
+- **Fotos fora do estado** (`js/photos.js` + store `photos` no IDB v2): o item guarda só
+  `photo.ref` (hash do conteúdo); o dataURL fica no store `photos` (local) e em
+  `photos/<ref>.jpg` no repo. Assim o `catalogo.json` **não cresce** com a coleção. Thumbs
+  carregam **sob demanda** (`hydratePhotos`/`data-pref`, IntersectionObserver). `migrateLocalPhotos`
+  (no `init` e ao importar backup) externaliza fotos inline antigas — **leitura
+  retrocompatível** (`thumbHtml`/`openItemModal` tratam `.ref` e `.data`). Fotos novas 512px.
+- **Sync de fotos** (`syncPhotos` em `js/sync.js`, após o push do `catalogo.json`): faz **uma**
+  listagem (`ghListPhotos`) e (1) **envia** refs referenciadas que faltam no repo; (2) **GC**:
+  apaga `photos/<ref>.jpg` **sem dono** no doc mesclado → excluir item/caixa não deixa foto
+  acumulada. GC seguro: só apaga sem dono; se errar, auto-recupera (re-upload na próxima sync de
+  quem ainda tem o arquivo). Foto endereçada por conteúdo = imutável (PUT sem sha; 422=já existe).
+- **Capacidade por caixa** (`box.capacity`, slider `#bx-cap` no modal): `boxCapacity(b)` =
+  `b.capacity || SUGGEST_FULL`. `boxFullness(count,cap)`/chip/barra e a folga do `suggestBox`
+  usam a capacidade da caixa (não mais o `SUGGEST_FULL` global p/ todas). Sem migração.
 - **Scanner de QR** (`js/scan.js`, botão `#btn-scan` na tela Caixas): usa `getUserMedia` +
   `BarcodeDetector` (nativo no Chrome Android) num overlay (`#scan-overlay`/`#scan-video`).
   `parseBoxFromText` extrai `#box=<id>` (ou id puro) e só aceita caixa existente → `openBoxDetail`.
@@ -77,22 +92,21 @@ Merge de sync: caixas/itens por `id` (last-write-wins, `mergeList`); `config` po
   (`move` quando muda de caixa, `add`, `remove`). Mostrado no card `#hist-card` (tela Caixas),
   `render()` chama `renderHistory()`. Sincroniza (ver `mergeLog`); "Limpar" usa `meta.logClearedAt`
   (last-write-wins) p/ não ressuscitar via merge.
-- **Estado no IndexedDB, não no localStorage:** as fotos ficam **embutidas** em
-  `item.photo.data` (dataURL comprimido ~640px/0.55), então o estado é grande demais p/
-  localStorage. `loadState`/`saveState` usam o store `app`. `localStorage` só guarda
-  config leve (tema, sync, dirty, lastsync).
+- **Estado no IndexedDB, não no localStorage:** `loadState`/`saveState` usam o store `app`
+  (estado **sem** as fotos — só `photo.ref`); as fotos ficam no store `photos` (ver acima).
+  `localStorage` só guarda config leve (tema, sync, dirty, lastsync).
 - **`init` renderiza ANTES de esperar o IndexedDB:** liga os controles e mostra a UI vazia,
   depois `await loadState()` e re-renderiza — nunca fica em branco se o load demorar.
 - **Sugestão de caixa** (`suggestBox`): pontua cada caixa por **afinidade de grupo** (mesma
   categoria > mesmo `grupo` > nada), **tamanho compatível** (penaliza P×G) e **folga**
-  (penaliza caixa cheia, `SUGGEST_FULL=25`). Acima de `SUGGEST_THRESHOLD=60` sugere a caixa;
+  (penaliza caixa cheia pela `boxCapacity` da caixa; default `SUGGEST_FULL=25`). Acima de `SUGGEST_THRESHOLD=60` sugere a caixa;
   senão recomenda **criar nova** (semente = grupo+tamanho do item). O chip no modal aplica
   com 1 toque; "criar nova" cria a caixa na hora (código automático) e seleciona.
 - **QR só de geração (sem leitor):** `boxQrUrl(id)` = URL do app + `#box=<id>`. A câmera
   **nativa** do celular lê e abre o link; `handleHash` (em `main.js`) abre a caixa. As
   etiquetas (`printLabels`) usam `@media print` no `#print-root`.
-- **Foto embutida:** `onItemPhoto` → `compressImage` → `item.photo={data,w,h}`. Não há
-  Google Drive; a foto viaja no JSON sincronizado.
+- **Foto:** `onItemPhoto` → `compressImage`(512px) → preview; `saveItem` → `savePhoto` →
+  `item.photo={ref,w,h}` (store `photos` + arquivo no repo). Não há Google Drive.
 - **Categorias com `grupo`:** renomear categoria não reescreve itens antigos. O `grupo` é o
   que alimenta a sugestão (ex.: "Cabos e fios" e "Material elétrico" → "Elétrica").
 
