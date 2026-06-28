@@ -323,6 +323,13 @@ details.card[open] summary .chev { transform: rotate(180deg); }
 .bx-bar-near .bx-bar-fill { background: var(--amber); }
 .bx-bar-full .bx-bar-fill { background: var(--danger); }
 
+/* ---------- Slider de espaço da caixa (modal de edição) ---------- */
+.cap-val { color: var(--muted); font-weight: 600; }
+input[type="range"]#bx-cap { width: 100%; accent-color: var(--green); margin: 4px 0 2px; cursor: pointer; }
+.cap-hint { display: block; font-size: .76rem; color: var(--muted); margin-top: 2px; }
+.cap-hint-near { color: var(--amber); }
+.cap-hint-full { color: var(--danger); }
+
 /* ---------- Stepper de quantidade (lista de itens) ---------- */
 .qty-step { display: inline-flex; align-items: center; gap: 2px; vertical-align: middle; }
 .qty-btn {

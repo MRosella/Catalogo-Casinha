@@ -214,6 +214,11 @@
           <select id="bx-size"><option value="">(automático)</option><option value="P">Pequenos</option><option value="M">Médios</option><option value="G">Grandes</option></select>
         </div>
       </div>
+      <div class="field">
+        <label for="bx-cap">Espaço da caixa <span class="cap-val">(<span id="bx-cap-val">25</span> itens)</span></label>
+        <input id="bx-cap" type="range" min="1" max="60" step="1" value="25" />
+        <small id="bx-cap-hint" class="cap-hint">Defina quantos itens cabem antes de lotar.</small>
+      </div>
       <div class="field"><label for="bx-note">Observação</label><textarea id="bx-note" rows="2" placeholder="opcional"></textarea></div>
       <div class="modal-actions">
         <button class="btn btn-danger-text" id="bx-delete" style="display:none"><span data-icon="trash-2" data-size="18"></span></button>
@@ -312,6 +317,7 @@
   <!-- App (scripts clássicos, escopo global compartilhado; core primeiro, main por último) -->
   <script src="js/core.js"></script>
   <script src="js/idb.js"></script>
+  <script src="js/photos.js"></script>
   <script src="js/suggest.js"></script>
   <script src="js/search.js"></script>
   <script src="js/boxes.js"></script>

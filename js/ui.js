@@ -94,8 +94,15 @@ function setupCatUI() {
 }
 
 /* ---------------- Backup (export/import do estado) ---------------- */
-function exportBackup() {
-  const blob = new Blob([JSON.stringify(currentDoc(), null, 2)], { type: 'application/json' });
+async function exportBackup() {
+  const doc = currentDoc();
+  for (const it of doc.items) {     // backup auto-contido: re-embute a foto (resolve o ref)
+    if (it.photo && it.photo.ref && !it.photo.data) {
+      try { const data = await resolvePhotoSrc(it.photo.ref); if (data) it.photo = { ref: it.photo.ref, data: data, w: it.photo.w, h: it.photo.h }; }
+      catch (e) { console.warn('exportBackup: foto', it.photo.ref, e); }
+    }
+  }
+  const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'catalogo-casinha-' + todayISO() + '.json';
@@ -114,6 +121,7 @@ function importBackupFile(file) {
       const merged = mergeDocs(currentDoc(), doc);
       touchProfile();
       applyDoc(merged);
+      await migrateLocalPhotos();     // externaliza fotos inline vindas do backup
       toast('Backup importado.');
     } catch (e) { console.error(e); toast('Backup inválido.'); }
   };

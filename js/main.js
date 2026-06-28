@@ -101,6 +101,9 @@ async function init() {
   populateCategorySelects();
   render();
 
+  // migra fotos inline (legado) p/ o store 'photos' antes do 1º sync (idempotente)
+  try { await migrateLocalPhotos(); } catch (e) { console.warn('migrateLocalPhotos falhou', e); }
+
   // sincronização inicial e ao reconectar/voltar o foco
   if (isSyncConfigured() && navigator.onLine) syncNow(true);
   window.addEventListener('online', () => { if (isSyncConfigured()) syncNow(true); });

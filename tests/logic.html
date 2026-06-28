@@ -6,6 +6,7 @@
 <script src="../lib/qrcode.min.js"></script>
 <script src="../js/core.js"></script>
 <script src="../js/idb.js"></script>
+<script src="../js/photos.js"></script>
 <script src="../js/suggest.js"></script>
 <script src="../js/search.js"></script>
 <script src="../js/boxes.js"></script>
@@ -88,6 +89,17 @@ ok('parseBoxFromText ignora caixa inexistente', parseBoxFromText('#box=zzz') ===
 ok('boxFullness ok p/ poucos itens', boxFullness(3).cls === 'ok');
 ok('boxFullness lotada >= SUGGEST_FULL', boxFullness(SUGGEST_FULL).cls === 'full');
 ok('boxFullness quase cheia em ~80%', boxFullness(Math.round(SUGGEST_FULL*0.8)).cls === 'near');
+
+/* ---------- boxFullness com capacidade por caixa ---------- */
+ok('boxFullness lotada na capacidade da caixa', boxFullness(10, 10).cls === 'full');
+ok('boxFullness com folga p/ capacidade grande', boxFullness(5, 20).cls === 'ok');
+ok('boxFullness near em ~80% da capacidade', boxFullness(8, 10).cls === 'near');
+ok('boxCapacity padrao = SUGGEST_FULL', boxCapacity({}) === SUGGEST_FULL && boxCapacity({capacity:12}) === 12);
+
+/* ---------- photoHashJs (ref por conteudo, fallback puro deterministico) ---------- */
+ok('photoHashJs deterministico (mesma entrada -> mesmo hash)', photoHashJs('abc') === photoHashJs('abc'));
+ok('photoHashJs distingue conteudos diferentes', photoHashJs('abc') !== photoHashJs('abd'));
+ok('photoHashJs devolve hex', /^[0-9a-f]+$/.test(photoHashJs('xyz')));
 
 /* ---------- sortResults (ordenação) ---------- */
 state = { config:CFG, boxes:[], items:[

@@ -96,6 +96,69 @@ async function ghCheckRepo(cfg) {
   return j;
 }
 
+/* ---- fotos no repo: arquivo por conteúdo em photos/<ref>.jpg ---- */
+function photoRepoPath(ref) { return 'photos/' + ref + '.jpg'; }
+
+async function ghPutPhoto(cfg, ref, dataUrl) {
+  const i = String(dataUrl || '').indexOf(',');
+  const content = i >= 0 ? dataUrl.slice(i + 1) : dataUrl;   // base64 do JPEG (sem o prefixo data:)
+  const url = `${GH_API}/repos/${cfg.repo}/contents/${photoRepoPath(ref)}`;
+  const res = await fetch(url, { method: 'PUT', headers: ghHeaders(cfg.token), body: JSON.stringify({ message: 'foto ' + ref, content: content }) });
+  if (res.status === 422 || res.status === 409) return true;   // já existe (imutável) → ok
+  if (!res.ok) throw new Error('GitHub PUT foto ' + res.status + ' — ' + (await res.text()).slice(0, 140));
+  return true;
+}
+async function ghGetPhoto(cfg, ref) {
+  const url = `${GH_API}/repos/${cfg.repo}/contents/${photoRepoPath(ref)}`;
+  const res = await fetch(url, { headers: ghHeaders(cfg.token), cache: 'no-store' });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('GitHub GET foto ' + res.status);
+  const j = await res.json();
+  let content = j.content;
+  if (!content || (j.encoding && j.encoding !== 'base64')) {   // >1MB: pega pelo blob
+    const br = await fetch(`${GH_API}/repos/${cfg.repo}/git/blobs/${j.sha}`, { headers: ghHeaders(cfg.token), cache: 'no-store' });
+    if (!br.ok) throw new Error('GitHub blob foto ' + br.status);
+    content = (await br.json()).content;
+  }
+  return 'data:image/jpeg;base64,' + (content || '').replace(/\s/g, '');
+}
+/* Lista os arquivos de photos/ (ref -> sha). Contents API devolve até 1000
+   itens (degrada com elegância acima disso); 404 = pasta ainda não existe. */
+async function ghListPhotos(cfg) {
+  const res = await fetch(`${GH_API}/repos/${cfg.repo}/contents/photos`, { headers: ghHeaders(cfg.token), cache: 'no-store' });
+  if (res.status === 404) return {};
+  if (!res.ok) throw new Error('GitHub list fotos ' + res.status);
+  const arr = await res.json();
+  const map = {};
+  if (Array.isArray(arr)) for (const f of arr) if (f && f.type === 'file' && /\.jpg$/.test(f.name)) map[f.name.replace(/\.jpg$/, '')] = f.sha;
+  return map;
+}
+async function ghDeletePhoto(cfg, ref, sha) {
+  const url = `${GH_API}/repos/${cfg.repo}/contents/${photoRepoPath(ref)}`;
+  const res = await fetch(url, { method: 'DELETE', headers: ghHeaders(cfg.token), body: JSON.stringify({ message: 'remove foto orfa ' + ref, sha: sha }) });
+  if (res.status === 404 || res.status === 422) return true;   // já sumiu
+  if (!res.ok) throw new Error('GitHub DELETE foto ' + res.status);
+  return true;
+}
+
+/* Reconcilia as fotos com o repo (1 listagem): envia as referenciadas que faltam
+   e apaga as órfãs (sem nenhum item dono no doc atual). Roda após o push. */
+async function syncPhotos(cfg) {
+  let repo;
+  try { repo = await ghListPhotos(cfg); } catch (e) { console.warn('ghListPhotos falhou', e); return; }
+  const refs = referencedRefs();
+  for (const ref of refs) {                          // upload: referenciada, local, ausente do repo
+    if (repo[ref]) continue;
+    try { const data = await photoStoreGet(ref); if (data) await ghPutPhoto(cfg, ref, data); }
+    catch (e) { console.warn('upload de foto falhou', ref, e); }
+  }
+  for (const ref in repo) {                           // GC: no repo mas sem dono no doc atual
+    if (refs.has(ref)) continue;
+    try { await ghDeletePhoto(cfg, ref, repo[ref]); }
+    catch (e) { console.warn('GC de foto falhou', ref, e); }
+  }
+}
+
 /* ---- documento sincronizado (snapshot + merge) ---- */
 function currentDoc() {
   return {
@@ -188,6 +251,7 @@ async function syncNow(silent) {
         else { throw e; }
       }
     }
+    try { await syncPhotos(cfg); } catch (e) { console.warn('syncPhotos', e); }   // fotos: não derruba o sync
     setDirty(false); setLastSync(Date.now()); updateFooter();
     setSyncStatus('Sincronizado • ' + new Date().toLocaleString('pt-BR'), 'ok');
   } catch (e) {

@@ -42,8 +42,10 @@ function searchItems(query, catFilter) {
   });
 }
 
-/* Miniatura (foto embutida) ou ícone genérico. */
+/* Miniatura: foto por ref (carregada sob demanda em hydratePhotos), foto inline
+   legada, ou ícone genérico. O placeholder com data-pref vira <img> ao aparecer. */
 function thumbHtml(it) {
+  if (it.photo && it.photo.ref) return `<span class="it-thumb it-thumb-ph" data-pref="${escapeHtml(it.photo.ref)}" aria-hidden="true">${icon('box', 22)}</span>`;
   if (it.photo && it.photo.data) return `<img class="it-thumb" src="${it.photo.data}" alt="" />`;
   return `<span class="it-thumb it-thumb-ph" aria-hidden="true">${icon('box', 22)}</span>`;
 }
@@ -136,6 +138,7 @@ function renderResults() {
   }
   list.innerHTML = res.map(itemCardHtml).join('');
   setupIcons(list);
+  hydratePhotos(list);
 }
 
 function setupSearchUI() {

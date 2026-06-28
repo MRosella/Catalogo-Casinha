@@ -49,8 +49,9 @@ function suggestBox(item) {
     else if (prof.groupCount[grupo]) score += 60;       // já tem algum item desse grupo
     // compatibilidade de tamanho (peso médio)
     score += sizeCompat(item.size, prof.domSize) * 40;
-    // folga (peso baixo): penaliza caixa cheia p/ distribuir
-    if (prof.count > SUGGEST_FULL) score -= (prof.count - SUGGEST_FULL) * 2;
+    // folga (peso baixo): penaliza caixa cheia (capacidade própria) p/ distribuir
+    const cap = boxCapacity(box);
+    if (prof.count >= cap) score -= (prof.count - cap + 1) * 2;
     if (score > bestScore) { bestScore = score; best = { box, prof, score }; }
   }
   if (best && best.score >= SUGGEST_THRESHOLD) {

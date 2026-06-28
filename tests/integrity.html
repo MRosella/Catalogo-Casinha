@@ -8,6 +8,7 @@
 <script src="../lib/qrcode.min.js"></script>
 <script src="../js/core.js"></script>
 <script src="../js/idb.js"></script>
+<script src="../js/photos.js"></script>
 <script src="../js/suggest.js"></script>
 <script src="../js/search.js"></script>
 <script src="../js/boxes.js"></script>
@@ -24,16 +25,17 @@
 <script>
 var checks = {
   'core':    ['emptyState','loadState','saveState','getCatConfig','grupoDaCategoria','normalizeText','icon','itemsInBox','confirmDialog','setupConfirmUI','emptyStateHtml','fmtBytes'],
-  'idb':     ['idb','idbGet','idbPut','compressImage','photoFromFile'],
+  'idb':     ['idb','idbGet','idbPut','compressImage','photoFromFile','photoStoreGet','photoStorePut','photoStoreHas','photoStoreKeys'],
+  'photos':  ['photoRef','savePhoto','resolvePhotoSrc','hydratePhotos','migrateLocalPhotos','referencedRefs'],
   'suggest': ['suggestBox','boxProfile','sizeCompat','suggestReason'],
-  'boxes':   ['renderBoxes','openBoxModal','saveBox','deleteBox','openBoxDetail','nextBoxCode','boxTitle','setupBoxUI','boxFullness','fillChipHtml','fillBarHtml','openMoveModal','doMoveItems','setupMoveUI'],
+  'boxes':   ['renderBoxes','openBoxModal','saveBox','deleteBox','openBoxDetail','nextBoxCode','boxTitle','setupBoxUI','boxFullness','fillChipHtml','fillBarHtml','boxCapacity','updateCapHint','openMoveModal','doMoveItems','setupMoveUI'],
   'items':   ['openItemModal','saveItem','deleteItem','refreshSuggestion','applySuggestion','setupItemUI','toggleItemOut','renderOutToggle','updateLooseRow','openLightbox','setupLightboxUI'],
   'history': ['logEvent','boxLabelById','logText','renderHistory','clearHistory','setupHistoryUI'],
   'scan':    ['scanSupported','startScan','stopScan','parseBoxFromText','setupScanUI'],
   'locate':  ['openLocate','renderLocate','setupLocateUI','populateLocCats','topCategory','locateMatchesHtml','locateSuggestHtml'],
   'search':  ['searchItems','renderResults','itemCardHtml','setupSearchUI','sortResults','markViewed','recentViewed','bumpQty','boxChipHtml','qtyStepHtml'],
   'qr':      ['appBaseUrl','boxQrUrl','qrDataUrl','printLabels','labelHtml'],
-  'sync':    ['syncNow','mergeDocs','mergeList','mergeLog','currentDoc','applyDoc','setupSyncUI'],
+  'sync':    ['syncNow','mergeDocs','mergeList','mergeLog','currentDoc','applyDoc','setupSyncUI','ghPutPhoto','ghGetPhoto','ghListPhotos','ghDeletePhoto','syncPhotos'],
   'ui':      ['showView','setupNav','populateCategorySelects','populateBoxSelects','renderCatEditor','saveCatEditor','exportBackup','importBackupFile','renderStorage','setupStorageUI'],
   'render':  ['render','updateCounts'],
   'main':    ['init','setupTheme','handleHash','setupServiceWorker','captureDeepLink','consumeDeepLink']

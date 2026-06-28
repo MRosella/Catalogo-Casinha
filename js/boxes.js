@@ -15,25 +15,32 @@ function nextBoxCode() {
 
 function boxTitle(b) { return (b.code ? b.code : '') + (b.name ? (b.code ? ' · ' : '') + b.name : '') || '(sem nome)'; }
 
-/* Estado de ocupação de uma caixa (usa o mesmo SUGGEST_FULL da sugestão):
+/* Capacidade (espaço) ajustável por caixa. Ausente = padrão SUGGEST_FULL. */
+const BOX_CAP_MIN = 1;
+const BOX_CAP_MAX = 60;
+function boxCapacity(b) { const c = b && parseInt(b.capacity, 10); return (c && c > 0) ? c : SUGGEST_FULL; }
+
+/* Estado de ocupação de uma caixa segundo a capacidade dela:
    ok (com folga) · near (≥80% cheia) · full (lotada). */
-function boxFullness(count) {
-  if (count >= SUGGEST_FULL) return { cls: 'full', label: 'Lotada' };
-  if (count >= Math.round(SUGGEST_FULL * 0.8)) return { cls: 'near', label: 'Quase cheia' };
+function boxFullness(count, cap) {
+  cap = (cap && cap > 0) ? cap : SUGGEST_FULL;
+  if (count >= cap) return { cls: 'full', label: 'Lotada' };
+  if (count >= Math.round(cap * 0.8)) return { cls: 'near', label: 'Quase cheia' };
   return { cls: 'ok', label: count + (count === 1 ? ' item' : ' itens') };
 }
 
 /* Chip de ocupação p/ a lista de caixas. */
-function fillChipHtml(count) {
-  const f = boxFullness(count);
+function fillChipHtml(count, cap) {
+  const f = boxFullness(count, cap);
   const ic = f.cls === 'ok' ? '' : icon('alert-triangle', 12) + ' ';
   return `<span class="bx-fill bx-fill-${f.cls}">${ic}${escapeHtml(f.label)}</span>`;
 }
 
-/* Barra visual de ocupação (proporção count/SUGGEST_FULL), mesma cor do chip. */
-function fillBarHtml(count) {
-  const f = boxFullness(count);
-  const pct = count ? Math.max(5, Math.min(100, Math.round(count / SUGGEST_FULL * 100))) : 0;
+/* Barra visual de ocupação (proporção count/cap), mesma cor do chip. */
+function fillBarHtml(count, cap) {
+  cap = (cap && cap > 0) ? cap : SUGGEST_FULL;
+  const f = boxFullness(count, cap);
+  const pct = count ? Math.max(5, Math.min(100, Math.round(count / cap * 100))) : 0;
   return `<span class="bx-bar bx-bar-${f.cls}" aria-hidden="true"><span class="bx-bar-fill" style="width:${pct}%"></span></span>`;
 }
 
@@ -47,9 +54,9 @@ function boxCardHtml(b) {
     <div class="e-main">
       <div class="e-desc">${escapeHtml(boxTitle(b))}</div>
       <div class="e-meta">${escapeHtml(grp)} ${loc}</div>
-      ${fillBarHtml(prof.count)}
+      ${fillBarHtml(prof.count, boxCapacity(b))}
     </div>
-    ${fillChipHtml(prof.count)}
+    ${fillChipHtml(prof.count, boxCapacity(b))}
     <button class="qbtn bx-edit" data-edit="${b.id}" aria-label="Editar caixa">${icon('edit', 18)}</button>
   </li>`;
 }
@@ -80,10 +87,22 @@ function openBoxModal(box, seed) {
   $('bx-note').value = box ? (box.note || '') : '';
   populateGroupSelect($('bx-group'), box ? box.mainGroup : (seed && seed.mainGroup) || '');
   $('bx-size').value = box ? (box.sizeClass || '') : (seed && seed.sizeClass) || '';
+  if ($('bx-cap')) { $('bx-cap').value = boxCapacity(box || {}); updateCapHint(box ? itemsInBox(box.id).length : 0); }
   $('bx-delete').style.display = box ? '' : 'none';
   $('box-modal').classList.add('open');
 }
 function closeBoxModal() { $('box-modal').classList.remove('open'); editingBoxId = null; }
+
+/* Atualiza o número e a dica do slider de espaço a partir da ocupação atual. */
+function updateCapHint(count) {
+  const cap = parseInt(($('bx-cap') || {}).value, 10) || SUGGEST_FULL;
+  if ($('bx-cap-val')) $('bx-cap-val').textContent = cap;
+  const hint = $('bx-cap-hint'); if (!hint) return;
+  const f = boxFullness(count, cap);
+  if (f.cls === 'full') { hint.textContent = `Lotada (${count}/${cap})`; }
+  else { const free = cap - count; hint.textContent = `Cabe${free === 1 ? '' : 'm'} mais ${free} (${count}/${cap})`; }
+  hint.className = 'cap-hint cap-hint-' + f.cls;
+}
 
 function saveBox() {
   const code = ($('bx-code').value || '').trim();
@@ -97,6 +116,7 @@ function saveBox() {
   b.note = ($('bx-note').value || '').trim();
   b.mainGroup = $('bx-group').value || '';
   b.sizeClass = $('bx-size').value || '';
+  if ($('bx-cap')) b.capacity = Math.max(BOX_CAP_MIN, Math.min(BOX_CAP_MAX, parseInt($('bx-cap').value, 10) || SUGGEST_FULL));
   b.updatedAt = now;
   touchDoc(); saveState();
   closeBoxModal();
@@ -136,6 +156,7 @@ function openBoxDetail(id) {
   list.innerHTML = items.length ? items.map(itemCardHtml).join('')
     : `<li class="empty-list">Caixa vazia. Cadastre itens e aponte para esta caixa.</li>`;
   setupIcons(list);
+  hydratePhotos(list);
   $('bd-print').onclick = () => printLabels([b]);
   $('box-detail').classList.add('open');
 }
@@ -210,6 +231,7 @@ function setupBoxUI() {
   });
   if ($('btn-add-box')) $('btn-add-box').addEventListener('click', () => openBoxModal(null));
   if ($('btn-print-labels')) $('btn-print-labels').addEventListener('click', () => printLabels(state.boxes));
+  if ($('bx-cap')) $('bx-cap').addEventListener('input', () => updateCapHint(editingBoxId ? itemsInBox(editingBoxId).length : 0));
   $('bx-save').addEventListener('click', saveBox);
   $('bx-cancel').addEventListener('click', closeBoxModal);
   $('bx-delete').addEventListener('click', deleteBox);

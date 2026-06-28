@@ -23,8 +23,15 @@ function openItemModal(item, presetBoxId) {
   $('m-qty').value = item && item.qty ? item.qty : '';
   $('m-tags').value = item ? (item.tags || '') : '';
   $('m-note').value = item ? (item.note || '') : '';
-  itemPhoto = { mode: 'keep', data: item && item.photo ? item.photo.data : null, w: item && item.photo ? item.photo.w : 0, h: item && item.photo ? item.photo.h : 0 };
+  const ph = (item && item.photo) ? item.photo : null;
+  itemPhoto = { mode: 'keep', data: ph ? (ph.data || null) : null, w: ph ? (ph.w || 0) : 0, h: ph ? (ph.h || 0) : 0 };
   renderItemPhoto();
+  if (ph && ph.ref && !itemPhoto.data) {           // foto externalizada: resolve o preview async
+    const forId = item.id;
+    resolvePhotoSrc(ph.ref).then((src) => {
+      if (src && editingItemId === forId && itemPhoto.mode === 'keep' && !itemPhoto.data) { itemPhoto.data = src; renderItemPhoto(); }
+    });
+  }
   renderOutToggle(item && item.out ? item.out : 0);
   $('m-delete').style.display = item ? '' : 'none';
   refreshSuggestion();
@@ -118,7 +125,7 @@ async function onItemPhoto(file) {
   } catch (e) { console.warn('foto falhou', e); toast('Não foi possível usar a imagem.'); }
 }
 
-function saveItem() {
+async function saveItem() {
   const name = ($('m-name').value || '').trim();
   if (!name) { toast('Dê um nome ao item.'); return; }
   const now = Date.now();
@@ -134,7 +141,7 @@ function saveItem() {
   it.qty = parseInt($('m-qty').value, 10) || 0;
   it.tags = ($('m-tags').value || '').trim();
   it.note = ($('m-note').value || '').trim();
-  if (itemPhoto.mode === 'set') it.photo = { data: itemPhoto.data, w: itemPhoto.w, h: itemPhoto.h };
+  if (itemPhoto.mode === 'set') it.photo = await savePhoto(itemPhoto.data, itemPhoto.w, itemPhoto.h);
   else if (itemPhoto.mode === 'remove') it.photo = null;
   it.updatedAt = now;
   // histórico: cadastro novo ou mudança de caixa (reorganização)
