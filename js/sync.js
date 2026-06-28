@@ -64,7 +64,17 @@ async function ghGetFile(cfg) {
   if (res.status === 404) return { exists: false, sha: null, data: null };
   if (!res.ok) throw new Error('GitHub ' + res.status + ' — ' + (await res.text()).slice(0, 140));
   const j = await res.json();
-  return { exists: true, sha: j.sha, data: JSON.parse(b64DecodeUtf8(j.content)) };
+  let content = j.content;
+  // Arquivos > 1MB: a Contents API devolve content vazio (encoding "none").
+  // Com fotos embutidas o catalogo.json passa disso, entao busca o blob pelo
+  // sha (Git Blobs API suporta ate 100MB, devolve base64). Sem isso,
+  // b64DecodeUtf8('') -> '' -> JSON.parse('') = "Unexpected end of JSON input".
+  if (!content || (j.encoding && j.encoding !== 'base64')) {
+    const br = await fetch(`${GH_API}/repos/${cfg.repo}/git/blobs/${j.sha}`, { headers: ghHeaders(cfg.token), cache: 'no-store' });
+    if (!br.ok) throw new Error('GitHub blob ' + br.status + ' — ' + (await br.text()).slice(0, 140));
+    content = (await br.json()).content;
+  }
+  return { exists: true, sha: j.sha, data: JSON.parse(b64DecodeUtf8(content)) };
 }
 async function ghPutFile(cfg, dataObj, sha) {
   const url = `${GH_API}/repos/${cfg.repo}/contents/${DATA_PATH}`;
