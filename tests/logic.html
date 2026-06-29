@@ -51,6 +51,13 @@ ok('findSimilar acha por nome quase igual', (function(){ var r=findSimilarItems(
 ok('findSimilar exclui o proprio id', findSimilarItems('Parafusos Philips','i1').every(function(m){return m.item.id!=='i1';}));
 ok('findSimilar vazio p/ nome sem relacao', findSimilarItems('Mangueira de jardim xyz',null).length===0);
 
+/* ---------- highlightTerms: realce do termo buscado ---------- */
+ok('highlight envolve o trecho casado em <mark>', highlightTerms('Parafuso Philips','phil')==='Parafuso <mark>Phil</mark>ips');
+ok('highlight acento-insensivel (lampada -> Lâmpada)', highlightTerms('Lâmpada','lampada')==='<mark>Lâmpada</mark>');
+ok('highlight sem query devolve nome escapado', highlightTerms('A & B','')==='A &amp; B');
+ok('highlight escapa HTML perigoso', highlightTerms('<b>x</b>','x').indexOf('&lt;b&gt;')===0);
+ok('highlight casa varios termos', highlightTerms('cabo de rede','cabo rede')==='<mark>cabo</mark> de <mark>rede</mark>');
+
 /* ---------- suggestBox: grupo + tamanho + createNew ---------- */
 function mkItems(boxId, cat, size, n){ var a=[]; for(var i=0;i<n;i++) a.push({id:boxId+'-'+i,name:'x',category:cat,boxId:boxId,size:size}); return a; }
 

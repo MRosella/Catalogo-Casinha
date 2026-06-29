@@ -55,12 +55,16 @@ svg { display: inline-block; vertical-align: middle; }
 .sync-ind.spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* barra de progresso da sincronização (some fora da sync) */
-.sync-prog { display: inline-flex; align-items: center; gap: 6px; }
-.sync-prog[hidden] { display: none; }
-.sync-prog-bar { width: 48px; height: 5px; border-radius: 999px; background: var(--line); overflow: hidden; }
-.sync-prog-fill { height: 100%; width: 0; background: var(--green); border-radius: 999px; transition: width .3s ease; }
-.sync-prog-pct { font-size: .72rem; color: var(--muted); min-width: 30px; font-variant-numeric: tabular-nums; }
+/* anel de progresso da sincronização ao redor do ícone (some fora da sync) */
+.sync-cell { display: inline-flex; flex-direction: column; align-items: center; }
+.sync-disc { position: relative; width: 42px; height: 42px; }
+.sync-disc .sync-ind { position: absolute; inset: 0; }
+.sync-ring { position: absolute; inset: 0; width: 42px; height: 42px; pointer-events: none; }
+.sync-ring[hidden] { display: none; }
+.sync-ring-track { fill: none; stroke: var(--line); stroke-width: 3; }
+.sync-ring-fill { fill: none; stroke: var(--green); stroke-width: 3; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset .3s ease; }
+.sync-prog-pct { font-size: .68rem; line-height: 1; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 1px; }
+.sync-prog-pct[hidden] { display: none; }
 
 /* ---------- Barra de abas (inferior) ---------- */
 .tabbar {
@@ -144,6 +148,21 @@ main { padding: 14px; max-width: 720px; margin: 0 auto; }
 }
 .entry:active { background: var(--bg); }
 .entry .e-main { flex: 1; min-width: 0; }
+
+/* swipe p/ excluir (só cartões de item): conteúdo desliza sobre o fundo vermelho */
+.entry-sw { position: relative; overflow: hidden; padding: 0; background: var(--danger); }
+.entry-sw .entry-fg {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  background: var(--card); position: relative; z-index: 1; will-change: transform; touch-action: pan-y;
+}
+.entry-sw .entry-fg:active { background: var(--bg); }
+.entry-sw.is-out .entry-fg { box-shadow: inset 3px 0 0 0 var(--amber); }
+.entry-bg {
+  position: absolute; inset: 0; z-index: 0; background: var(--danger); color: #fff;
+  display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 0 18px;
+  font-weight: 800; font-size: .9rem;
+}
+.entry-sw.will-delete .entry-bg { background: #c0392b; }
 .entry .e-desc { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .entry .e-meta { font-size: .77rem; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .entry .e-box { font-size: .76rem; color: var(--green-dark); font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; background: #e7f1ea; padding: 4px 9px; border-radius: 20px; }
@@ -258,6 +277,31 @@ details.card[open] summary .chev { transform: rotate(180deg); }
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--green-dark); color: #fff; padding: 11px 18px; border-radius: 24px; font-size: .85rem; box-shadow: var(--shadow); z-index: 80; opacity: 0; pointer-events: none; transition: opacity .2s, bottom .2s; max-width: 90vw; text-align: center; }
 .toast.show { opacity: 1; bottom: 36px; }
 
+/* barra "Desfazer" (exclusão de item/caixa) */
+.undo-bar {
+  position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 14px; background: var(--green-dark); color: #fff;
+  padding: 10px 12px 10px 18px; border-radius: 14px; box-shadow: var(--shadow); z-index: 82;
+  font-size: .85rem; max-width: 92vw; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+}
+.undo-bar.show { opacity: 1; pointer-events: auto; }
+.undo-bar button { border: none; background: rgba(255, 255, 255, .18); color: #fff; font-weight: 800; font-size: .85rem; padding: 7px 14px; border-radius: 10px; cursor: pointer; font-family: inherit; }
+.undo-bar button:active { background: rgba(255, 255, 255, .3); }
+
+/* grade de estatísticas (tela Caixas) */
+.stats-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.stat-chip {
+  flex: 1 1 auto; min-width: 88px; background: var(--card); border: 1px solid var(--line);
+  border-radius: 12px; padding: 9px 12px; box-shadow: var(--shadow); text-align: left;
+  font-family: inherit; color: var(--text); cursor: default;
+}
+button.stat-chip { cursor: pointer; }
+button.stat-chip:active { background: var(--bg); }
+.stat-chip .stat-n { font-size: 1.3rem; font-weight: 800; line-height: 1.1; color: var(--green-dark); }
+.stat-chip .stat-l { font-size: .72rem; color: var(--muted); display: flex; align-items: center; gap: 4px; margin-top: 1px; }
+.stat-chip.warn .stat-n { color: var(--amber); }
+.stat-chip.danger .stat-n { color: var(--danger); }
+
 /* aviso offline */
 .offline-notice { position: fixed; inset: 0; z-index: 90; background: rgba(20, 30, 22, .55); display: flex; align-items: center; justify-content: center; padding: 24px; }
 .offline-notice .offline-card { background: var(--card); border-radius: 16px; max-width: 360px; width: 100%; padding: 24px 22px; text-align: center; box-shadow: var(--shadow); }
@@ -310,6 +354,18 @@ details.card[open] summary .chev { transform: rotate(180deg); }
 /* chip-filtro "Sem caixa" (itens órfãos) */
 .chip.chip-nobox { border-color: var(--danger); color: var(--danger); display: inline-flex; align-items: center; gap: 4px; }
 .chip.chip-nobox.active { background: linear-gradient(135deg, #d6493a, var(--danger)); color: #fff; border-color: transparent; }
+/* estoque baixo: badge no cartão + chip-filtro na busca */
+.low-badge {
+  display: inline-flex; align-items: center; gap: 3px; vertical-align: middle;
+  font-size: .62rem; font-weight: 800; padding: 2px 7px; border-radius: 20px;
+  background: #f7dcd8; color: var(--danger);
+}
+:root[data-theme="dark"] .low-badge { background: #3a201d; color: #e58d82; }
+.chip.chip-low { border-color: var(--danger); color: var(--danger); display: inline-flex; align-items: center; gap: 4px; }
+.chip.chip-low.active { background: linear-gradient(135deg, #d6493a, var(--danger)); color: #fff; border-color: transparent; }
+/* realce do termo buscado nos resultados */
+mark { background: #fde68a; color: inherit; border-radius: 3px; padding: 0 1px; }
+:root[data-theme="dark"] mark { background: #5b4b16; color: #f5e6b8; }
 /* botão de alternância no modal do item */
 .m-out-btn { width: 100%; justify-content: center; margin-bottom: 12px; }
 .m-out-btn.active { border-color: var(--amber); color: #a35a10; background: #fdf0d8; }

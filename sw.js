@@ -1,7 +1,7 @@
 /* Service Worker — cache do app para funcionar offline.
    Estratégia: network-first (online sempre pega a versão nova; cache é
    só fallback offline). Mantém o PWA sempre na última versão publicada. */
-const CACHE = 'catalogo-casinha-v8';
+const CACHE = 'catalogo-casinha-v9';
 const ASSETS = [
   './',
   './index.html',

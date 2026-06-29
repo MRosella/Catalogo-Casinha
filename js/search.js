@@ -7,6 +7,7 @@ let searchCat = '';   // '' = todas
 let searchSort = 'rec';   // rec=recentes(updatedAt) · vis=vistos por último · az=nome · cat=categoria
 let searchOut = false;    // true = mostrar só itens "em uso" (retirados)
 let searchNobox = false;  // true = mostrar só itens órfãos (sem caixa e não "soltos de propósito")
+let searchLow = false;    // true = mostrar só itens com estoque baixo (qty <= min, min>0)
 
 /* "Vistos por último": lista LOCAL de ids de itens abertos (não sincroniza). */
 function recentViewed() { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) { return []; } }
@@ -78,6 +79,37 @@ function findSimilarItems(name, excludeId) {
     .sort((x, y) => y.score - x.score);
 }
 
+/* Item com estoque baixo: tem mínimo definido e a quantidade chegou nele. */
+function isLowStock(it) { return !!(it && it.min > 0 && (it.qty || 0) <= it.min); }
+
+/* Realça em <mark> os trechos do texto que casam com os termos da busca
+   (acento/caixa-insensível). Escapa o HTML por caractere. Pura → testada. */
+function highlightTerms(text, query) {
+  text = text == null ? '' : String(text);
+  const terms = normalizeText(query).trim().split(/\s+/).filter(Boolean);
+  if (!terms.length) return escapeHtml(text);
+  // versão normalizada + mapa de cada índice normalizado -> índice original
+  let norm = ''; const map = [];
+  for (let i = 0; i < text.length; i++) { const nc = normalizeText(text[i]); for (let k = 0; k < nc.length; k++) { norm += nc[k]; map.push(i); } }
+  const mark = new Array(text.length).fill(false);
+  for (const t of terms) {
+    let from = 0, idx;
+    while ((idx = norm.indexOf(t, from)) >= 0) {
+      const o1 = map[idx], o2 = map[idx + t.length - 1];
+      for (let j = o1; j <= o2; j++) mark[j] = true;
+      from = idx + t.length;
+    }
+  }
+  let html = '', open = false;
+  for (let i = 0; i < text.length; i++) {
+    if (mark[i] && !open) { html += '<mark>'; open = true; }
+    else if (!mark[i] && open) { html += '</mark>'; open = false; }
+    html += escapeHtml(text[i]);
+  }
+  if (open) html += '</mark>';
+  return html;
+}
+
 /* Miniatura: foto por ref (carregada sob demanda em hydratePhotos), foto inline
    legada, ou ícone genérico. O placeholder com data-pref vira <img> ao aparecer. */
 function thumbHtml(it) {
@@ -102,9 +134,10 @@ function boxChipHtml(it) {
 /* Stepper de quantidade (ajuste rápido na lista). */
 function qtyStepHtml(it) {
   const q = it.qty || 0;
+  const low = it.min > 0 ? q <= it.min : q <= 1;
   return `<span class="qty-step">
     <button type="button" class="qty-btn" data-qsub="${it.id}" aria-label="Diminuir quantidade">−</button>
-    <span class="qty-val${q <= 1 ? ' low' : ''}" data-qval="${it.id}">${q}</span>
+    <span class="qty-val${low ? ' low' : ''}" data-qval="${it.id}">${q}</span>
     <button type="button" class="qty-btn" data-qadd="${it.id}" aria-label="Aumentar quantidade">+</button>
   </span>`;
 }
@@ -116,22 +149,27 @@ function bumpQty(id, delta) {
   if (q === (it.qty || 0)) return;
   it.qty = q; it.updatedAt = Date.now();
   touchDoc(); saveState();
-  document.querySelectorAll(`[data-qval="${id}"]`).forEach((el) => { el.textContent = q; el.classList.toggle('low', q <= 1); });
+  const low = it.min > 0 ? q <= it.min : q <= 1;
+  document.querySelectorAll(`[data-qval="${id}"]`).forEach((el) => { el.textContent = q; el.classList.toggle('low', low); });
 }
 
-/* Cartão de um item na lista de resultados. */
-function itemCardHtml(it) {
+/* Cartão de um item na lista de resultados. q = termo da busca (para realçar). */
+function itemCardHtml(it, q) {
   const out = !!it.out;
   const outBadge = out ? `<span class="it-out-badge">${icon('log-out', 11)} Em uso</span>` : '';
+  const lowBadge = isLowStock(it) ? `<span class="low-badge">${icon('alert-triangle', 11)} Estoque baixo</span>` : '';
   const toggle = `<button class="qbtn it-out-btn${out ? ' active' : ''}" data-toggleout="${it.id}" aria-label="${out ? 'Devolver à caixa' : 'Marcar como em uso'}" title="${out ? 'Devolver à caixa' : 'Marcar como em uso'}">${icon(out ? 'rotate-ccw' : 'log-out', 18)}</button>`;
-  return `<li class="entry${out ? ' is-out' : ''}" data-item="${it.id}">
-    ${thumbHtml(it)}
-    <div class="e-main">
-      <div class="e-desc">${escapeHtml(it.name)} ${sizeBadge(it.size)} ${outBadge}</div>
-      <div class="e-meta">${it.category ? escapeHtml(it.category) : ''}${qtyStepHtml(it)}</div>
-    </div>
-    ${boxChipHtml(it)}
-    ${toggle}
+  return `<li class="entry entry-sw${out ? ' is-out' : ''}" data-item="${it.id}">
+    <span class="entry-bg" aria-hidden="true">${icon('trash-2', 20)} Excluir</span>
+    <span class="entry-fg">
+      ${thumbHtml(it)}
+      <div class="e-main">
+        <div class="e-desc">${highlightTerms(it.name, q || '')} ${sizeBadge(it.size)} ${outBadge} ${lowBadge}</div>
+        <div class="e-meta">${it.category ? escapeHtml(it.category) : ''}${qtyStepHtml(it)}</div>
+      </div>
+      ${boxChipHtml(it)}
+      ${toggle}
+    </span>
   </li>`;
 }
 
@@ -143,10 +181,12 @@ function renderCatChips() {
   const cats = getCategorias();
   const outN = (state.items || []).filter((it) => it.out).length;
   const noboxN = (state.items || []).filter((it) => !it.boxId && !it.loose).length;
-  const allActive = searchCat === '' && !searchOut && !searchNobox;
+  const lowN = (state.items || []).filter(isLowStock).length;
+  const allActive = searchCat === '' && !searchOut && !searchNobox && !searchLow;
   let html = `<button class="chip${allActive ? ' active' : ''}" data-cat="">Todas (${(state.items || []).length})</button>`;
   if (outN) html += `<button class="chip chip-out${searchOut ? ' active' : ''}" data-onlyout="1">${icon('log-out', 12)} Em uso (${outN})</button>`;
   if (noboxN) html += `<button class="chip chip-nobox${searchNobox ? ' active' : ''}" data-nobox="1">${icon('alert-triangle', 12)} Sem caixa (${noboxN})</button>`;
+  if (lowN) html += `<button class="chip chip-low${searchLow ? ' active' : ''}" data-low="1">${icon('alert-triangle', 12)} Estoque baixo (${lowN})</button>`;
   html += cats.filter((c) => counts[c]).map((c) =>
     `<button class="chip${searchCat === c ? ' active' : ''}" data-cat="${escapeHtml(c)}">${escapeHtml(c)} (${counts[c]})</button>`).join('');
   box.innerHTML = html;
@@ -159,6 +199,7 @@ function renderResults() {
   let found = searchItems(searchQuery, searchCat);
   if (searchOut) found = found.filter((it) => it.out);
   if (searchNobox) found = found.filter((it) => !it.boxId && !it.loose);
+  if (searchLow) found = found.filter(isLowStock);
   const res = sortResults(found);
   if (!res.length) {
     const total = (state.items || []).length;
@@ -172,7 +213,7 @@ function renderResults() {
     setupIcons(list);
     return;
   }
-  list.innerHTML = res.map(itemCardHtml).join('');
+  list.innerHTML = res.map((it) => itemCardHtml(it, searchQuery)).join('');
   setupIcons(list);
   hydratePhotos(list);
 }
@@ -182,18 +223,21 @@ function setupSearchUI() {
   if (q) q.addEventListener('input', () => { searchQuery = q.value; renderResults(); });
   const chips = $('cat-chips');
   if (chips) chips.addEventListener('click', (e) => {
+    const lo = e.target.closest('[data-low]');
+    if (lo) { searchLow = !searchLow; searchOut = false; searchNobox = false; searchCat = ''; renderResults(); return; }
     const nob = e.target.closest('[data-nobox]');
-    if (nob) { searchNobox = !searchNobox; searchOut = false; searchCat = ''; renderResults(); return; }
+    if (nob) { searchNobox = !searchNobox; searchOut = false; searchLow = false; searchCat = ''; renderResults(); return; }
     const out = e.target.closest('[data-onlyout]');
-    if (out) { searchOut = !searchOut; searchNobox = false; searchCat = ''; renderResults(); return; }
+    if (out) { searchOut = !searchOut; searchNobox = false; searchLow = false; searchCat = ''; renderResults(); return; }
     const b = e.target.closest('[data-cat]'); if (!b) return;
-    searchCat = b.dataset.cat || ''; searchOut = false; searchNobox = false;
+    searchCat = b.dataset.cat || ''; searchOut = false; searchNobox = false; searchLow = false;
     renderResults();
   });
   const sort = $('sort');
   if (sort) sort.addEventListener('change', () => { searchSort = sort.value || 'rec'; renderResults(); });
   const list = $('results');
   if (list) list.addEventListener('click', (e) => {
+    if (Date.now() - swipeGuardTs < 400) return;   // ignora clique-fantasma pós-swipe
     if (e.target.closest('[data-empty="add-item"]')) { openItemModal(null); return; }
     if (e.target.closest('[data-empty="add-box"]')) { openBoxModal(null); return; }
     const qa = e.target.closest('[data-qadd]'); if (qa) { e.stopPropagation(); bumpQty(qa.dataset.qadd, 1); return; }

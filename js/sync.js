@@ -32,14 +32,15 @@ function setSyncStatus(msg, kind) {
   el.textContent = msg; el.className = 'sync-status' + (kind ? ' ' + kind : '');
 }
 
-/* barra de progresso no cabeçalho: pct numérico mostra/atualiza; null esconde. */
+/* anel de progresso ao redor do ícone: pct numérico mostra/atualiza; null esconde. */
 function setSyncProgress(pct) {
-  const wrap = $('sync-prog'); if (!wrap) return;
-  if (pct == null) { wrap.hidden = true; return; }
+  const ring = $('sync-ring'); const lbl = $('sync-prog-pct');
+  if (pct == null) { if (ring) ring.hidden = true; if (lbl) lbl.hidden = true; return; }
   const p = Math.max(0, Math.min(100, Math.round(pct)));
-  wrap.hidden = false;
-  const fill = $('sync-prog-fill'); if (fill) fill.style.width = p + '%';
-  const lbl = $('sync-prog-pct'); if (lbl) lbl.textContent = p + '%';
+  const fill = $('sync-ring-fill');
+  if (fill) { const C = 2 * Math.PI * 19; fill.style.strokeDasharray = C; fill.style.strokeDashoffset = C * (1 - p / 100); }
+  if (ring) ring.hidden = false;
+  if (lbl) { lbl.textContent = p + '%'; lbl.hidden = false; }
 }
 
 /* ícone no cabeçalho: ✓ sincronizado · ⟳ pendente/sincronizando · ⚠ offline */

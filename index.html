@@ -29,11 +29,16 @@
     <span class="hdr-logo" data-icon="box" data-size="22" aria-hidden="true"></span>
     <div class="title" id="header-title">Buscar</div>
     <div class="spacer"></div>
-    <div class="sync-prog" id="sync-prog" hidden>
-      <div class="sync-prog-bar"><div class="sync-prog-fill" id="sync-prog-fill"></div></div>
-      <span class="sync-prog-pct" id="sync-prog-pct">0%</span>
+    <div class="sync-cell">
+      <span class="sync-disc">
+        <svg class="sync-ring" id="sync-ring" viewBox="0 0 44 44" aria-hidden="true" hidden>
+          <circle class="sync-ring-track" cx="22" cy="22" r="19"></circle>
+          <circle class="sync-ring-fill" id="sync-ring-fill" cx="22" cy="22" r="19"></circle>
+        </svg>
+        <button class="icon-btn sync-ind" id="sync-ind" aria-label="Sincronizar" style="display:none"></button>
+      </span>
+      <span class="sync-prog-pct" id="sync-prog-pct" hidden>0%</span>
     </div>
-    <button class="icon-btn sync-ind" id="sync-ind" aria-label="Sincronizar" style="display:none"></button>
     <button class="icon-btn" id="theme-toggle" aria-label="Tema"></button>
   </header>
 
@@ -68,6 +73,7 @@
         <button class="add-btn ghost" id="btn-scan"><span data-icon="qr-code" data-size="18"></span> Escanear</button>
         <button class="add-btn ghost" id="btn-print-labels"><span data-icon="printer" data-size="18"></span> Etiquetas</button>
       </div>
+      <div class="stats-grid" id="stats-card"></div>
       <ul class="entries" id="boxes-list"></ul>
 
       <details class="card" id="hist-card">
@@ -178,8 +184,9 @@
       <button type="button" class="hist-btn m-out-btn" id="m-out" style="display:none"></button>
       <div class="row2">
         <div class="field"><label for="m-qty">Quantidade</label><input id="m-qty" type="number" inputmode="numeric" min="0" placeholder="1" /></div>
-        <div class="field"><label for="m-tags">Tags (palavras-chave)</label><input id="m-tags" type="text" placeholder="ex.: furadeira, metal" autocapitalize="none" /></div>
+        <div class="field"><label for="m-min">Estoque mínimo</label><input id="m-min" type="number" inputmode="numeric" min="0" placeholder="0" /></div>
       </div>
+      <div class="field"><label for="m-tags">Tags (palavras-chave)</label><input id="m-tags" type="text" placeholder="ex.: furadeira, metal" autocapitalize="none" /></div>
       <div class="field"><label for="m-note">Observação</label><textarea id="m-note" rows="2" placeholder="opcional"></textarea></div>
 
       <div class="field foto-attach">
@@ -314,6 +321,7 @@
     <button class="btn btn-ghost scan-close" id="scan-close">Fechar</button>
   </div>
 
+  <div class="undo-bar" id="undo-bar" hidden><span id="undo-msg"></span><button type="button" id="undo-btn">Desfazer</button></div>
   <div class="toast" id="toast"></div>
   <div id="print-root"></div>
 

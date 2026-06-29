@@ -75,6 +75,29 @@ function renderBoxes() {
   setupIcons(list);
 }
 
+/* Card de resumo (tela Caixas): totais; alguns chips navegam p/ a busca filtrada. */
+function renderStats() {
+  const el = $('stats-card'); if (!el) return;
+  const items = state.items || [], boxes = state.boxes || [];
+  if (!items.length && !boxes.length) { el.innerHTML = ''; return; }
+  const full = boxes.filter((b) => itemsInBox(b.id).length >= boxCapacity(b)).length;
+  const nobox = items.filter((it) => !it.boxId && !it.loose).length;
+  const out = items.filter((it) => it.out).length;
+  const low = items.filter(isLowStock).length;
+  const chip = (n, label, ic, cls, jump) => {
+    const tag = jump ? 'button' : 'span';
+    const attr = jump ? ` data-jump="${jump}"` : '';
+    return `<${tag} class="stat-chip${cls ? ' ' + cls : ''}"${attr}><span class="stat-n">${n}</span><span class="stat-l">${ic ? icon(ic, 12) + ' ' : ''}${escapeHtml(label)}</span></${tag}>`;
+  };
+  let html = chip(items.length, 'itens', 'box') + chip(boxes.length, boxes.length === 1 ? 'caixa' : 'caixas', 'box');
+  if (full) html += chip(full, full === 1 ? 'caixa lotada' : 'caixas lotadas', 'alert-triangle', 'warn');
+  if (nobox) html += chip(nobox, 'sem caixa', 'alert-triangle', 'danger', 'nobox');
+  if (out) html += chip(out, 'em uso', 'log-out', 'warn', 'out');
+  if (low) html += chip(low, 'estoque baixo', 'alert-triangle', 'danger', 'low');
+  el.innerHTML = html;
+  setupIcons(el);
+}
+
 /* ---------- Modal de caixa (criar/editar) ---------- */
 let editingBoxId = null;
 
@@ -132,6 +155,9 @@ async function deleteBox() {
                 : 'Excluir esta caixa?';
   if (!await confirmDialog(msg, { okText: 'Excluir', danger: true })) return;
   const now = Date.now();
+  const box = boxById(editingBoxId);
+  const affected = itemsInBox(editingBoxId).map((it) => ({ id: it.id, boxId: it.boxId }));   // p/ o Desfazer
+  lastDeleted = { kind: 'box', box: Object.assign({}, box), items: affected };
   for (const it of itemsInBox(editingBoxId)) { it.boxId = ''; it.updatedAt = now; }   // desvincula
   state.boxes = state.boxes.filter((b) => b.id !== editingBoxId);
   state.tomb.boxes[editingBoxId] = now;
@@ -139,7 +165,7 @@ async function deleteBox() {
   closeBoxModal();
   render();
   populateBoxSelects();
-  toast('Caixa excluída.');
+  showUndo('Caixa excluída.', undoLastDelete);
 }
 
 /* ---------- Detalhe da caixa (itens dentro) ---------- */
@@ -153,7 +179,7 @@ function openBoxDetail(id) {
     (b.location ? ' · ' + b.location : '') + (prof.domGroup ? ' · ' + prof.domGroup : '');
   const items = itemsInBox(id).slice().sort((a, b2) => normalizeText(a.name).localeCompare(normalizeText(b2.name)));
   const list = $('bd-items');
-  list.innerHTML = items.length ? items.map(itemCardHtml).join('')
+  list.innerHTML = items.length ? items.map((it) => itemCardHtml(it)).join('')
     : `<li class="empty-list">Caixa vazia. Cadastre itens e aponte para esta caixa.</li>`;
   setupIcons(list);
   hydratePhotos(list);
@@ -231,6 +257,15 @@ function setupBoxUI() {
   });
   if ($('btn-add-box')) $('btn-add-box').addEventListener('click', () => openBoxModal(null));
   if ($('btn-print-labels')) $('btn-print-labels').addEventListener('click', () => printLabels(state.boxes));
+  const stats = $('stats-card');
+  if (stats) stats.addEventListener('click', (e) => {
+    const j = e.target.closest('[data-jump]'); if (!j) return;
+    const k = j.dataset.jump;
+    searchCat = ''; searchOut = (k === 'out'); searchNobox = (k === 'nobox'); searchLow = (k === 'low');
+    searchQuery = ''; const q = $('q'); if (q) q.value = '';
+    showView('buscar');
+    renderResults();
+  });
   if ($('bx-cap')) $('bx-cap').addEventListener('input', () => updateCapHint(editingBoxId ? itemsInBox(editingBoxId).length : 0));
   $('bx-save').addEventListener('click', saveBox);
   $('bx-cancel').addEventListener('click', closeBoxModal);
@@ -243,6 +278,7 @@ function setupBoxUI() {
   setupMoveUI();
   const bdItems = $('bd-items');
   if (bdItems) bdItems.addEventListener('click', (e) => {
+    if (Date.now() - swipeGuardTs < 400) return;   // ignora clique-fantasma pós-swipe
     const qa = e.target.closest('[data-qadd]'); if (qa) { e.stopPropagation(); bumpQty(qa.dataset.qadd, 1); return; }
     const qs = e.target.closest('[data-qsub]'); if (qs) { e.stopPropagation(); bumpQty(qs.dataset.qsub, -1); return; }
     const tg = e.target.closest('[data-toggleout]');

@@ -6,7 +6,7 @@
    entre dispositivos por um repositório GitHub privado.
    ============================================================ */
 
-const APP_VERSION = 'v8';                 // manter igual ao CACHE em sw.js
+const APP_VERSION = 'v9';                 // manter igual ao CACHE em sw.js
 const DB_NAME = 'catalogo-casinha';       // IndexedDB
 const STATE_KEY = 'state';                // chave do estado dentro do store 'app'
 const THEME_KEY = 'catalogo-casinha-theme-v1';

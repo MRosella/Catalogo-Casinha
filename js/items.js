@@ -22,6 +22,7 @@ function openItemModal(item, presetBoxId) {
   if ($('m-loose')) $('m-loose').checked = !!(item && item.loose);
   updateLooseRow();
   $('m-qty').value = item && item.qty ? item.qty : '';
+  if ($('m-min')) $('m-min').value = item && item.min ? item.min : '';
   $('m-tags').value = item ? (item.tags || '') : '';
   $('m-note').value = item ? (item.note || '') : '';
   const ph = (item && item.photo) ? item.photo : null;
@@ -179,6 +180,7 @@ async function saveItem() {
   it.boxId = $('m-box').value || '';
   it.loose = (!it.boxId && $('m-loose') && $('m-loose').checked) ? true : false;
   it.qty = parseInt($('m-qty').value, 10) || 0;
+  it.min = ($('m-min') ? parseInt($('m-min').value, 10) : 0) || 0;
   it.tags = ($('m-tags').value || '').trim();
   it.note = ($('m-note').value || '').trim();
   if (itemPhoto.mode === 'set') it.photo = await savePhoto(itemPhoto.data, itemPhoto.w, itemPhoto.h);
@@ -196,15 +198,105 @@ async function saveItem() {
 async function deleteItem() {
   if (!editingItemId) return;
   if (!await confirmDialog('Excluir este item?', { okText: 'Excluir', danger: true })) return;
-  const now = Date.now();
-  const it = (state.items || []).find((x) => x.id === editingItemId);
-  if (it) logEvent('remove', it, boxLabelById(it.boxId), '');
-  state.items = state.items.filter((x) => x.id !== editingItemId);
-  state.tomb.items[editingItemId] = now;
-  touchDoc(); saveState();
+  const id = editingItemId;
   closeItemModal();
+  deleteItemById(id);
+}
+
+/* ---- Exclusão com "Desfazer" (item e caixa) ---- */
+let lastDeleted = null;   // {kind:'item'|'box', item?|box?, items?:[{id,boxId}]}
+
+/* Exclui um item por id (usado pelo modal e pelo swipe), com rede de Desfazer. */
+function deleteItemById(id) {
+  const it = (state.items || []).find((x) => x.id === id); if (!it) return;
+  const now = Date.now();
+  logEvent('remove', it, boxLabelById(it.boxId), '');
+  lastDeleted = { kind: 'item', item: Object.assign({}, it) };
+  state.items = state.items.filter((x) => x.id !== id);
+  state.tomb.items[id] = now;
+  touchDoc(); saveState();
   render();
-  toast('Item excluído.');
+  if (detailBoxId) openBoxDetail(detailBoxId);
+  showUndo('Item excluído.', undoLastDelete);
+}
+
+/* Restaura a última exclusão (item ou caixa + itens que ficaram sem caixa). */
+function undoLastDelete() {
+  const d = lastDeleted; if (!d) return; lastDeleted = null;
+  const now = Date.now();
+  if (d.kind === 'item') {
+    d.item.updatedAt = now; state.items.push(d.item); delete state.tomb.items[d.item.id];
+  } else {
+    d.box.updatedAt = now; state.boxes.push(d.box); delete state.tomb.boxes[d.box.id];
+    for (const r of (d.items || [])) { const it = (state.items || []).find((x) => x.id === r.id); if (it) { it.boxId = r.boxId; it.updatedAt = now; } }
+    populateBoxSelects();
+  }
+  touchDoc(); saveState();
+  render();
+  if (detailBoxId) openBoxDetail(detailBoxId);
+  toast('Restaurado.');
+}
+
+/* Barra "Desfazer": mostra por ~6s; o botão chama fn; some sozinha. */
+function showUndo(msg, fn) {
+  const bar = $('undo-bar'); if (!bar) { toast(msg); return; }
+  $('undo-msg').textContent = msg;
+  bar.hidden = false;
+  requestAnimationFrame(() => bar.classList.add('show'));
+  $('undo-btn').onclick = () => { hideUndo(); fn(); };
+  clearTimeout(showUndo._t);
+  showUndo._t = setTimeout(hideUndo, 6000);
+}
+function hideUndo() {
+  const bar = $('undo-bar'); if (!bar) return;
+  bar.classList.remove('show');
+  clearTimeout(showUndo._t);
+  setTimeout(() => { bar.hidden = true; }, 220);
+}
+
+/* ---- Swipe p/ excluir item (arrastar para a esquerda na lista) ---- */
+let swipeGuardTs = 0;   // marca o fim de um swipe → o handler de clique ignora o clique-fantasma
+function setupSwipeDelete(listEl) {
+  if (!listEl) return;
+  let fg = null, id = '', x0 = 0, y0 = 0, dir = 0, dx = 0, li = null;
+  const TH = () => Math.min(140, Math.max(90, listEl.clientWidth * 0.4));
+  listEl.addEventListener('touchstart', (e) => {
+    const t = e.target.closest('.entry-sw[data-item]');
+    if (!t) { fg = null; return; }
+    li = t; fg = t.querySelector('.entry-fg'); id = t.dataset.item;
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dir = 0; dx = 0;
+    if (fg) fg.style.transition = 'none';
+  }, { passive: true });
+  listEl.addEventListener('touchmove', (e) => {
+    if (!fg) return;
+    const cx = e.touches[0].clientX, cy = e.touches[0].clientY;
+    if (!dir) {
+      if (Math.abs(cx - x0) > 10 && Math.abs(cx - x0) > Math.abs(cy - y0)) dir = 1;        // horizontal
+      else if (Math.abs(cy - y0) > 10) { dir = -1; fg = null; return; }                    // vertical = scroll
+      else return;
+    }
+    dx = Math.min(0, cx - x0);   // só para a esquerda
+    e.preventDefault();
+    fg.style.transform = 'translateX(' + dx + 'px)';
+    li.classList.toggle('will-delete', -dx > TH());
+  }, { passive: false });
+  const end = () => {
+    if (!fg) return;
+    const f = fg, l = li, theId = id;
+    f.style.transition = '';
+    if (-dx > TH()) {
+      f.style.transform = 'translateX(-100%)';
+      swipeGuardTs = Date.now();
+      setTimeout(() => deleteItemById(theId), 160);
+    } else {
+      f.style.transform = '';
+      if (l) l.classList.remove('will-delete');
+      if (dir === 1) swipeGuardTs = Date.now();
+    }
+    fg = null; li = null; dir = 0; dx = 0;
+  };
+  listEl.addEventListener('touchend', end);
+  listEl.addEventListener('touchcancel', end);
 }
 
 function viewItemPhoto() { if (itemPhoto.data) openLightbox(itemPhoto.data); }
@@ -261,5 +353,7 @@ function setupItemUI() {
   $('m-photo-remove').addEventListener('click', () => { itemPhoto = { mode: 'remove', data: null, w: 0, h: 0 }; renderItemPhoto(); });
   if ($('m-photo-preview')) $('m-photo-preview').addEventListener('click', () => { if (itemPhoto.data) openLightbox(itemPhoto.data); });
   $('item-modal').addEventListener('click', (e) => { if (e.target === $('item-modal')) closeItemModal(); });
+  setupSwipeDelete($('results'));
+  setupSwipeDelete($('bd-items'));
   setupLightboxUI();
 }
