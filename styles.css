@@ -152,6 +152,7 @@ main { padding: 14px; max-width: 720px; margin: 0 auto; }
 /* swipe p/ excluir (só cartões de item): conteúdo desliza sobre o fundo vermelho */
 .entry-sw { position: relative; overflow: hidden; padding: 0; background: var(--danger); }
 .entry-sw .entry-fg {
+  flex: 1 1 100%; min-width: 0;
   display: flex; align-items: center; gap: 12px; padding: 12px 14px;
   background: var(--card); position: relative; z-index: 1; will-change: transform; touch-action: pan-y;
 }
