@@ -7,6 +7,7 @@
 let editingItemId = null;
 let itemPhoto = { mode: 'keep', data: null, w: 0, h: 0 };   // mode: keep | set | remove
 let lastSuggestion = null;
+let dupMatches = [];   // itens parecidos com o nome digitado (aviso de duplicado)
 
 function openItemModal(item, presetBoxId) {
   editingItemId = item ? item.id : null;
@@ -35,6 +36,7 @@ function openItemModal(item, presetBoxId) {
   renderOutToggle(item && item.out ? item.out : 0);
   $('m-delete').style.display = item ? '' : 'none';
   refreshSuggestion();
+  refreshDupWarning();
   $('item-modal').classList.add('open');
   setTimeout(() => { try { $('m-name').focus(); } catch (e) {} }, 50);
 }
@@ -84,6 +86,35 @@ function applySuggestion() {
   refreshSuggestion();
 }
 
+/* ---- Aviso de item duplicado (só em item novo) ---- */
+function refreshDupWarning() {
+  const chip = $('m-dup'); if (!chip) return;
+  const name = ($('m-name').value || '').trim();
+  dupMatches = (!editingItemId && name.length >= 2) ? findSimilarItems(name, null) : [];
+  if (!dupMatches.length) { chip.style.display = 'none'; return; }
+  const top = dupMatches[0].item;
+  const where = top.boxId ? boxTitle(boxById(top.boxId)) : (top.loose ? 'solto na casinha' : 'sem caixa');
+  const more = dupMatches.length > 1 ? ` (+${dupMatches.length - 1})` : '';
+  chip.innerHTML = `<span class="sg-ic">${icon('alert-triangle', 15)}</span>` +
+    `<span class="sg-txt"><b>Já existe: ${escapeHtml(top.name)}${more}</b>` +
+    `<small>${escapeHtml(where)} · toque para somar à quantidade</small></span>`;
+  chip.style.display = '';
+  setupIcons(chip);
+}
+/* Soma a quantidade digitada (ou 1) ao item existente em vez de criar duplicado. */
+function applyDupMerge() {
+  const top = dupMatches[0]; if (!top) return;
+  const it = top.item;
+  const add = parseInt($('m-qty').value, 10) || 1;
+  it.qty = (it.qty || 0) + add;
+  it.updatedAt = Date.now();
+  logEvent('add', it, '', boxLabelById(it.boxId));
+  touchDoc(); saveState();
+  closeItemModal();
+  render();
+  toast(it.name + ': quantidade agora ' + it.qty + '.');
+}
+
 /* ---- "Em uso" (retirado da caixa, sem excluir) ---- */
 /* Reflete o estado no botão do modal; some em item novo (ainda não salvo). */
 function renderOutToggle(outTs) {
@@ -128,6 +159,15 @@ async function onItemPhoto(file) {
 async function saveItem() {
   const name = ($('m-name').value || '').trim();
   if (!name) { toast('Dê um nome ao item.'); return; }
+  if (!editingItemId) {   // item novo: evita duplicar nome praticamente idêntico
+    const strong = findSimilarItems(name, null).filter((m) => m.score >= 0.85);
+    if (strong.length) {
+      const ok = await confirmDialog('Já existe "' + strong[0].item.name +
+        '". Criar um item separado mesmo assim?',
+        { okText: 'Criar assim mesmo', cancelText: 'Cancelar' });
+      if (!ok) return;   // cancelou: pode tocar no chip p/ somar
+    }
+  }
   const now = Date.now();
   let it = editingItemId ? (state.items || []).find((x) => x.id === editingItemId) : null;
   const isNew = !it;
@@ -206,9 +246,11 @@ function setupItemUI() {
   $('m-cancel').addEventListener('click', closeItemModal);
   $('m-delete').addEventListener('click', deleteItem);
   if ($('m-out')) $('m-out').addEventListener('click', () => { if (editingItemId) toggleItemOut(editingItemId); });
+  $('m-name').addEventListener('input', refreshDupWarning);
   $('m-categoria').addEventListener('change', refreshSuggestion);
   $('m-box').addEventListener('change', () => { updateLooseRow(); refreshSuggestion(); });
   $('m-suggest').addEventListener('click', applySuggestion);
+  $('m-dup').addEventListener('click', applyDupMerge);
   document.querySelectorAll('#m-size-group .size-btn').forEach((b) =>
     b.addEventListener('click', () => { setSizeButtons(currentSize() === b.dataset.size ? '' : b.dataset.size); refreshSuggestion(); }));
   $('m-photo-cam').addEventListener('click', () => $('m-photo-file').click());

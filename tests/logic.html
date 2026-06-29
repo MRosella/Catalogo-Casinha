@@ -42,6 +42,15 @@ ok('busca casa nome da caixa (eletrica)', searchItems('eletrica','').length>=1);
 ok('filtro de categoria', searchItems('','Material elétrico').length===1);
 ok('busca vazia retorna tudo', searchItems('','').length===2);
 
+/* ---------- nameSimilarity / findSimilarItems ---------- */
+ok('similar: igual = 1', nameSimilarity('Parafuso','parafuso')===1);
+ok('similar: plural alto (Parafuso~Parafusos)', nameSimilarity('Parafuso','Parafusos')>=0.85);
+ok('similar: acento ignorado (lampada~lâmpada)', nameSimilarity('lampada','lâmpada')===1);
+ok('similar: distintos baixo (Parafuso~Martelo)', nameSimilarity('Parafuso','Martelo')<0.5);
+ok('findSimilar acha por nome quase igual', (function(){ var r=findSimilarItems('Parafuso Philips',null); return r.length>=1 && r[0].item.id==='i1'; })());
+ok('findSimilar exclui o proprio id', findSimilarItems('Parafusos Philips','i1').every(function(m){return m.item.id!=='i1';}));
+ok('findSimilar vazio p/ nome sem relacao', findSimilarItems('Mangueira de jardim xyz',null).length===0);
+
 /* ---------- suggestBox: grupo + tamanho + createNew ---------- */
 function mkItems(boxId, cat, size, n){ var a=[]; for(var i=0;i<n;i++) a.push({id:boxId+'-'+i,name:'x',category:cat,boxId:boxId,size:size}); return a; }
 

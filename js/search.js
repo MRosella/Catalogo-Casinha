@@ -42,6 +42,42 @@ function searchItems(query, catFilter) {
   });
 }
 
+/* Distância de edição (Levenshtein) entre duas strings. Pura. */
+function editDistance(a, b) {
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+/* Semelhança de nomes 0..1 (acento/caixa-insensível). 1=igual; trata
+   singular/plural e substring (>=3 chars) como forte; senão usa Levenshtein. */
+function nameSimilarity(a, b) {
+  a = normalizeText(a).trim(); b = normalizeText(b).trim();
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const short = Math.min(a.length, b.length);
+  if (short >= 3 && (a.includes(b) || b.includes(a))) return 0.9;
+  return 1 - editDistance(a, b) / Math.max(a.length, b.length);
+}
+/* Itens existentes com nome parecido (acima do limiar de exibição), excluindo
+   excludeId (o próprio item em edição), do mais parecido p/ menos. Pura. */
+function findSimilarItems(name, excludeId) {
+  const SHOW = 0.72;
+  return (state.items || [])
+    .filter((it) => it.id !== excludeId)
+    .map((it) => ({ item: it, score: nameSimilarity(name, it.name) }))
+    .filter((m) => m.score >= SHOW)
+    .sort((x, y) => y.score - x.score);
+}
+
 /* Miniatura: foto por ref (carregada sob demanda em hydratePhotos), foto inline
    legada, ou ícone genérico. O placeholder com data-pref vira <img> ao aparecer. */
 function thumbHtml(it) {
