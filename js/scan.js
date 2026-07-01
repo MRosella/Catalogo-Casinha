@@ -7,7 +7,7 @@
    Se o navegador não tiver BarcodeDetector, o botão some (a câmera
    nativa do celular continua lendo o QR, que é uma URL do app).
    ============================================================ */
-let scanStream = null, scanRAF = null, scanDetector = null, scanning = false;
+let scanStream = null, scanRAF = null, scanDetector = null, scanning = false, scanTorchOn = false;
 
 function scanSupported() {
   return ('BarcodeDetector' in window) && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
@@ -23,6 +23,7 @@ async function startScan() {
     scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
     const v = $('scan-video'); v.srcObject = scanStream; await v.play();
     scanning = true;
+    updateTorchButton();
     scanLoop();
   } catch (e) {
     console.warn('scan falhou', e);
@@ -64,10 +65,31 @@ function onScanHit(id) {
 
 function stopScan() {
   scanning = false;
+  scanTorchOn = false;
   if (scanRAF) { cancelAnimationFrame(scanRAF); scanRAF = null; }
   if (scanStream) { scanStream.getTracks().forEach((t) => t.stop()); scanStream = null; }
   const v = $('scan-video'); if (v) v.srcObject = null;
   const ov = $('scan-overlay'); if (ov) ov.classList.remove('open');
+  updateTorchButton();
+}
+
+/* ---- Lanterna (torch): só aparece quando a câmera declara suporte ---- */
+function updateTorchButton() {
+  const b = $('scan-torch'); if (!b) return;
+  const track = scanStream && scanStream.getVideoTracks()[0];
+  let has = false;
+  try { has = !!(track && track.getCapabilities && track.getCapabilities().torch); } catch (e) {}
+  b.style.display = has ? '' : 'none';
+  b.classList.toggle('on', scanTorchOn);
+  b.innerHTML = icon('zap', 22);
+}
+async function toggleTorch() {
+  const track = scanStream && scanStream.getVideoTracks()[0]; if (!track) return;
+  try {
+    scanTorchOn = !scanTorchOn;
+    await track.applyConstraints({ advanced: [{ torch: scanTorchOn }] });
+  } catch (e) { scanTorchOn = false; toast('A lanterna não funcionou nesta câmera.'); }
+  updateTorchButton();
 }
 
 function setupScanUI() {
@@ -77,4 +99,5 @@ function setupScanUI() {
     else btn.addEventListener('click', startScan);
   }
   const close = $('scan-close'); if (close) close.addEventListener('click', stopScan);
+  const torch = $('scan-torch'); if (torch) torch.addEventListener('click', toggleTorch);
 }

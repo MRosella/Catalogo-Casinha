@@ -35,6 +35,7 @@ function openItemModal(item, presetBoxId) {
     });
   }
   renderOutToggle(item && item.out ? item.out : 0);
+  renderItemHistory(item);
   $('m-delete').style.display = item ? '' : 'none';
   refreshSuggestion();
   refreshDupWarning();
@@ -139,6 +140,20 @@ function toggleItemOut(id) {
   if (detailBoxId) openBoxDetail(detailBoxId);          // atualiza o detalhe da caixa aberto
   if (editingItemId === id) renderOutToggle(it.out);     // atualiza o botão do modal aberto
   toast(wasOut ? 'Devolvido à caixa.' : 'Marcado como em uso.');
+}
+
+/* ---- Histórico do item (últimas movimentações no modal de edição) ---- */
+function renderItemHistory(item) {
+  const wrap = $('m-hist-wrap'); if (!wrap) return;
+  const evs = (item && Array.isArray(state.log))
+    ? state.log.filter((ev) => ev.itemId === item.id).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 5)
+    : [];
+  if (!evs.length) { wrap.style.display = 'none'; $('m-hist').innerHTML = ''; return; }
+  $('m-hist').innerHTML = evs.map((ev) => `<li class="hist-row hist-${ev.kind}">
+    <span class="hist-ic" aria-hidden="true">${icon(logIcon(ev.kind), 14)}</span>
+    <span class="hist-main"><span class="hist-txt">${logText(ev)}</span><span class="hist-when">${escapeHtml(fmtWhen(ev.ts))}</span></span>
+  </li>`).join('');
+  wrap.style.display = '';
 }
 
 /* ---- Foto (embutida) ---- */
@@ -261,6 +276,7 @@ function setupSwipeDelete(listEl) {
   let fg = null, id = '', x0 = 0, y0 = 0, dir = 0, dx = 0, li = null;
   const TH = () => Math.min(140, Math.max(90, listEl.clientWidth * 0.4));
   listEl.addEventListener('touchstart', (e) => {
+    if (listEl.classList.contains('grid')) { fg = null; return; }   // modo grade: sem swipe (excluir pelo modal)
     const t = e.target.closest('.entry-sw[data-item]');
     if (!t) { fg = null; return; }
     li = t; fg = t.querySelector('.entry-fg'); id = t.dataset.item;

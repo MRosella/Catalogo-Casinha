@@ -48,9 +48,10 @@ function fillBarHtml(count, cap) {
 function boxCardHtml(b) {
   const prof = boxProfile(b);
   const grp = prof.domGroup || b.mainGroup || '—';
+  const g = groupClass(b.mainGroup || prof.domGroup);
   const loc = b.location ? `<span class="bx-loc">${icon('map-pin', 13)} ${escapeHtml(b.location)}</span>` : '';
   return `<li class="entry bx-row" data-box="${b.id}">
-    <span class="it-thumb it-thumb-ph" aria-hidden="true">${icon('box', 22)}</span>
+    <span class="it-thumb it-thumb-ph${g ? ' grp-tint ' + g : ''}" aria-hidden="true">${icon('box', 22)}</span>
     <div class="e-main">
       <div class="e-desc">${escapeHtml(boxTitle(b))}</div>
       <div class="e-meta">${escapeHtml(grp)} ${loc}</div>
@@ -172,21 +173,46 @@ async function deleteBox() {
 let detailBoxId = null;
 function openBoxDetail(id) {
   const b = boxById(id); if (!b) return;
+  const sameBox = detailBoxId === id;   // re-render da mesma caixa (toggle "em uso" etc.) mantém o filtro
   detailBoxId = id;
   $('bd-title').textContent = boxTitle(b);
   const prof = boxProfile(b);
   $('bd-sub').textContent = `${prof.count} ${prof.count === 1 ? 'item' : 'itens'}` +
     (b.location ? ' · ' + b.location : '') + (prof.domGroup ? ' · ' + prof.domGroup : '');
-  const items = itemsInBox(id).slice().sort((a, b2) => normalizeText(a.name).localeCompare(normalizeText(b2.name)));
-  const list = $('bd-items');
-  list.innerHTML = items.length ? items.map((it) => itemCardHtml(it)).join('')
-    : `<li class="empty-list">Caixa vazia. Cadastre itens e aponte para esta caixa.</li>`;
-  setupIcons(list);
-  hydratePhotos(list);
+  if ($('bd-filter') && !sameBox) $('bd-filter').value = '';
+  if ($('bd-filter-wrap')) $('bd-filter-wrap').style.display = prof.count > 8 ? '' : 'none';
+  renderBoxDetailItems();
   $('bd-print').onclick = () => printLabels([b]);
   $('box-detail').classList.add('open');
 }
+
+/* Lista de itens do detalhe, aplicando o filtro local (#bd-filter). */
+function renderBoxDetailItems() {
+  const list = $('bd-items'); if (!list || !detailBoxId) return;
+  const f = normalizeText(($('bd-filter') && $('bd-filter').value) || '').trim();
+  let items = itemsInBox(detailBoxId).slice().sort((a, b2) => normalizeText(a.name).localeCompare(normalizeText(b2.name)));
+  if (f) items = items.filter((it) => normalizeText([it.name, it.tags, it.category].filter(Boolean).join(' ')).includes(f));
+  list.innerHTML = items.length ? items.map((it) => itemCardHtml(it, f ? ($('bd-filter').value || '') : '')).join('')
+    : `<li class="empty-list">${f ? 'Nada com esse nome nesta caixa.' : 'Caixa vazia. Cadastre itens e aponte para esta caixa.'}</li>`;
+  setupIcons(list);
+  hydratePhotos(list);
+}
 function closeBoxDetail() { $('box-detail').classList.remove('open'); detailBoxId = null; setPendingBox(''); }
+
+/* Compartilha o link da caixa (o mesmo do QR); fallback = copiar. */
+function shareBox(id) {
+  const b = boxById(id); if (!b) return;
+  const url = boxQrUrl(id);
+  if (navigator.share) {
+    navigator.share({ title: 'Caixa ' + boxTitle(b), text: 'Caixa ' + boxTitle(b) + (b.location ? ' — ' + b.location : ''), url }).catch(() => {});
+    return;
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => toast('Link da caixa copiado.')).catch(() => toast('Não foi possível copiar.'));
+    return;
+  }
+  toast('Compartilhar não é suportado aqui.');
+}
 
 /* ---------- Mover vários itens de uma vez (a partir do detalhe da caixa) ---------- */
 let moveFromBoxId = null;
@@ -275,6 +301,12 @@ function setupBoxUI() {
   $('bd-close').addEventListener('click', closeBoxDetail);
   $('bd-add').addEventListener('click', () => { const id = detailBoxId; closeBoxDetail(); openItemModal(null, id); });
   if ($('bd-move')) $('bd-move').addEventListener('click', () => { if (detailBoxId) openMoveModal(detailBoxId); });
+  if ($('bd-filter')) $('bd-filter').addEventListener('input', renderBoxDetailItems);
+  if ($('bd-share')) {
+    const canShare = !!(navigator.share || (navigator.clipboard && navigator.clipboard.writeText));
+    if (!canShare) $('bd-share').style.display = 'none';
+    else $('bd-share').addEventListener('click', () => { if (detailBoxId) shareBox(detailBoxId); });
+  }
   setupMoveUI();
   const bdItems = $('bd-items');
   if (bdItems) bdItems.addEventListener('click', (e) => {

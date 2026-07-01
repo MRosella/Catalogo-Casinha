@@ -160,6 +160,34 @@ var orphans = [
 ].filter((it) => !it.boxId && !it.loose);
 ok('só órfãos contam no filtro Sem caixa (exclui loose)', orphans.length === 1 && orphans[0].id === 'o1');
 
+/* ---------- groupClass (cor estável por grupo) ---------- */
+ok('groupClass deterministico (mesmo nome -> mesma classe)', groupClass('Elétrica') === groupClass('Elétrica'));
+ok('groupClass acento/caixa-insensível', groupClass('Elétrica') === groupClass('eletrica'));
+ok('groupClass formato grp-0..7', /^grp-[0-7]$/.test(groupClass('Jardinagem')));
+ok('groupClass vazio -> sem classe', groupClass('') === '' && groupClass(null) === '');
+
+/* ---------- didYouMean (busca sem resultado) ---------- */
+var DYM_ITEMS = [
+  { id:'d1', name:'Furadeira', tags:'makita, broca' },
+  { id:'d2', name:'Martelo', tags:'' }
+];
+ok('didYouMean acha por erro de digitação (furadera)', (didYouMean('furadera', DYM_ITEMS) || {}).id === 'd1');
+ok('didYouMean acha por tag (makita)', (didYouMean('makita', DYM_ITEMS) || {}).id === 'd1');
+ok('didYouMean null p/ termo sem relação', didYouMean('xyzabc', DYM_ITEMS) === null);
+ok('didYouMean null p/ busca curta (<3)', didYouMean('fu', DYM_ITEMS) === null);
+
+/* ---------- shoppingListText (lista de compras do estoque baixo) ---------- */
+var SL_ITEMS = [
+  { name:'Parafuso 6mm', qty:1, min:5 },
+  { name:'Fita isolante', qty:10, min:2 },
+  { name:'Abraçadeira', qty:0, min:3 }
+];
+var sl = shoppingListText(SL_ITEMS);
+ok('shoppingList só inclui estoque baixo (2 linhas)', sl.split('\n').length === 3);
+ok('shoppingList tem cabeçalho', sl.indexOf('Lista de compras') === 0);
+ok('shoppingList formata qtd/mín', sl.indexOf('Parafuso 6mm (tem 1, mín 5)') > 0);
+ok('shoppingList vazia sem estoque baixo', shoppingListText([{ name:'x', qty:9, min:1 }]) === '');
+
 out.push('ERRORS: ' + (window.__errs.length ? window.__errs.join(' | ') : 'none'));
 out.push((fail || window.__errs.length) ? 'RESULT: FAIL' : 'RESULT: PASS');
 document.getElementById('out').textContent = out.join('\n');

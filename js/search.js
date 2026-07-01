@@ -8,6 +8,7 @@ let searchSort = 'rec';   // rec=recentes(updatedAt) · vis=vistos por último �
 let searchOut = false;    // true = mostrar só itens "em uso" (retirados)
 let searchNobox = false;  // true = mostrar só itens órfãos (sem caixa e não "soltos de propósito")
 let searchLow = false;    // true = mostrar só itens com estoque baixo (qty <= min, min>0)
+let searchView = 'list';  // 'list' ou 'grid' (fotos grandes); persiste LOCAL em VIEWMODE_KEY
 
 /* "Vistos por último": lista LOCAL de ids de itens abertos (não sincroniza). */
 function recentViewed() { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) { return []; } }
@@ -82,6 +83,43 @@ function findSimilarItems(name, excludeId) {
 /* Item com estoque baixo: tem mínimo definido e a quantidade chegou nele. */
 function isLowStock(it) { return !!(it && it.min > 0 && (it.qty || 0) <= it.min); }
 
+/* "Você quis dizer…?": melhor item cujo nome (ou tag) parece com a busca vazia
+   de resultados. Devolve o item ou null. Pura → testada em logic.html. */
+function didYouMean(query, items) {
+  const q = normalizeText(query).trim();
+  if (q.length < 3) return null;
+  let best = null, bs = 0;
+  for (const it of (items || [])) {
+    const cands = [it.name].concat((it.tags || '').split(/[,;]+/));
+    for (const c of cands) {
+      if (!c || !c.trim()) continue;
+      const s = nameSimilarity(q, c);
+      if (s > bs) { bs = s; best = it; }
+    }
+  }
+  return (best && bs >= 0.55) ? best : null;
+}
+
+/* Texto da lista de compras a partir dos itens com estoque baixo. Pura. */
+function shoppingListText(items) {
+  const low = (items || []).filter(isLowStock)
+    .slice().sort((a, b) => normalizeText(a.name).localeCompare(normalizeText(b.name)));
+  if (!low.length) return '';
+  return 'Lista de compras — Casinha:\n' +
+    low.map((it) => `• ${it.name} (tem ${it.qty || 0}, mín ${it.min})`).join('\n');
+}
+/* Compartilha (ou copia) a lista de compras. */
+function shareShoppingList() {
+  const text = shoppingListText(state.items);
+  if (!text) { toast('Nada com estoque baixo.'); return; }
+  if (navigator.share) { navigator.share({ text }).catch(() => {}); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => toast('Lista copiada.')).catch(() => toast('Não foi possível copiar.'));
+    return;
+  }
+  toast('Compartilhar não é suportado aqui.');
+}
+
 /* Realça em <mark> os trechos do texto que casam com os termos da busca
    (acento/caixa-insensível). Escapa o HTML por caractere. Pura → testada. */
 function highlightTerms(text, query) {
@@ -123,10 +161,13 @@ function sizeBadge(size) {
   return `<span class="size-badge size-${size}" title="${SIZE_LABEL[size] || ''}">${size}</span>`;
 }
 
-/* Chip da caixa do item: caixa real · "Solto" (sem caixa de propósito) · "Sem caixa" (órfão). */
+/* Chip da caixa do item: caixa real (com a cor do grupo) · "Solto" · "Sem caixa" (órfão). */
 function boxChipHtml(it) {
   const box = boxById(it.boxId);
-  if (box) return `<span class="e-box">${icon('box', 14)} ${escapeHtml(boxTitle(box))}</span>`;
+  if (box) {
+    const g = groupClass(box.mainGroup || boxProfile(box).domGroup);
+    return `<span class="e-box${g ? ' grp-tint ' + g : ''}">${icon('box', 14)} ${escapeHtml(boxTitle(box))}</span>`;
+  }
   if (it.loose) return `<span class="e-box is-loose">${icon('map-pin', 13)} Solto</span>`;
   return `<span class="e-box is-orphan">${icon('alert-triangle', 13)} Sem caixa</span>`;
 }
@@ -187,8 +228,9 @@ function renderCatChips() {
   if (outN) html += `<button class="chip chip-out${searchOut ? ' active' : ''}" data-onlyout="1">${icon('log-out', 12)} Em uso (${outN})</button>`;
   if (noboxN) html += `<button class="chip chip-nobox${searchNobox ? ' active' : ''}" data-nobox="1">${icon('alert-triangle', 12)} Sem caixa (${noboxN})</button>`;
   if (lowN) html += `<button class="chip chip-low${searchLow ? ' active' : ''}" data-low="1">${icon('alert-triangle', 12)} Estoque baixo (${lowN})</button>`;
+  if (lowN && searchLow) html += `<button class="chip chip-share" data-sharelow="1">${icon('shopping-cart', 12)} Compartilhar lista</button>`;
   html += cats.filter((c) => counts[c]).map((c) =>
-    `<button class="chip${searchCat === c ? ' active' : ''}" data-cat="${escapeHtml(c)}">${escapeHtml(c)} (${counts[c]})</button>`).join('');
+    `<button class="chip${searchCat === c ? ' active' : ''}" data-cat="${escapeHtml(c)}"><span class="grp-dot ${groupClass(grupoDaCategoria(c))}"></span>${escapeHtml(c)} (${counts[c]})</button>`).join('');
   box.innerHTML = html;
 }
 
@@ -208,7 +250,9 @@ function renderResults() {
         ? emptyStateHtml('search', 'Nenhum item ainda', 'Cadastre o primeiro item — o app sugere a melhor caixa para ele.', 'data-empty="add-item"', 'Novo item')
         : emptyStateHtml('box', 'Bem-vindo ao Catálogo!', 'Comece criando uma caixa para guardar e organizar seus itens.', 'data-empty="add-box"', 'Criar primeira caixa');
     } else {
-      list.innerHTML = `<li class="empty-list">Nada encontrado para essa busca.</li>`;
+      const dym = didYouMean(searchQuery, state.items);
+      list.innerHTML = `<li class="empty-list">Nada encontrado para essa busca.${dym
+        ? `<br><button type="button" class="dym-btn" data-dym="${escapeHtml(dym.name)}">Você quis dizer <b>${escapeHtml(dym.name)}</b>?</button>` : ''}</li>`;
     }
     setupIcons(list);
     return;
@@ -218,11 +262,31 @@ function renderResults() {
   hydratePhotos(list);
 }
 
+/* Aplica o modo de visualização (lista/grade) na lista e no botão de alternância. */
+function applySearchView() {
+  const list = $('results'); if (list) list.classList.toggle('grid', searchView === 'grid');
+  const btn = $('view-toggle');
+  if (btn) {
+    btn.innerHTML = icon(searchView === 'grid' ? 'list' : 'grid', 20);
+    btn.title = searchView === 'grid' ? 'Ver em lista' : 'Ver em grade (fotos)';
+  }
+}
+
 function setupSearchUI() {
   const q = $('q');
   if (q) q.addEventListener('input', () => { searchQuery = q.value; renderResults(); });
+  try { const v = localStorage.getItem(VIEWMODE_KEY); if (v === 'grid') searchView = 'grid'; } catch (e) {}
+  applySearchView();
+  const vt = $('view-toggle');
+  if (vt) vt.addEventListener('click', () => {
+    searchView = searchView === 'grid' ? 'list' : 'grid';
+    try { localStorage.setItem(VIEWMODE_KEY, searchView); } catch (e) {}
+    applySearchView();
+  });
   const chips = $('cat-chips');
   if (chips) chips.addEventListener('click', (e) => {
+    const sh = e.target.closest('[data-sharelow]');
+    if (sh) { shareShoppingList(); return; }
     const lo = e.target.closest('[data-low]');
     if (lo) { searchLow = !searchLow; searchOut = false; searchNobox = false; searchCat = ''; renderResults(); return; }
     const nob = e.target.closest('[data-nobox]');
@@ -240,6 +304,8 @@ function setupSearchUI() {
     if (Date.now() - swipeGuardTs < 400) return;   // ignora clique-fantasma pós-swipe
     if (e.target.closest('[data-empty="add-item"]')) { openItemModal(null); return; }
     if (e.target.closest('[data-empty="add-box"]')) { openBoxModal(null); return; }
+    const dy = e.target.closest('[data-dym]');
+    if (dy) { searchQuery = dy.dataset.dym || ''; if ($('q')) $('q').value = searchQuery; renderResults(); return; }
     const qa = e.target.closest('[data-qadd]'); if (qa) { e.stopPropagation(); bumpQty(qa.dataset.qadd, 1); return; }
     const qs = e.target.closest('[data-qsub]'); if (qs) { e.stopPropagation(); bumpQty(qs.dataset.qsub, -1); return; }
     const tg = e.target.closest('[data-toggleout]');

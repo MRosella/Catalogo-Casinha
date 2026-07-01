@@ -6,7 +6,7 @@
    entre dispositivos por um repositório GitHub privado.
    ============================================================ */
 
-const APP_VERSION = 'v10';                 // manter igual ao CACHE em sw.js
+const APP_VERSION = 'v11';                 // manter igual ao CACHE em sw.js
 const DB_NAME = 'catalogo-casinha';       // IndexedDB
 const STATE_KEY = 'state';                // chave do estado dentro do store 'app'
 const THEME_KEY = 'catalogo-casinha-theme-v1';
@@ -15,6 +15,8 @@ const LASTSYNC_KEY = 'catalogo-casinha-lastsync-v1';
 const DIRTY_KEY = 'catalogo-casinha-dirty-v1';
 const RECENT_KEY = 'catalogo-casinha-recent-v1';   // ids de itens abertos por último (LOCAL, p/ ordenar "Vistos")
 const PENDING_BOX_KEY = 'catalogo-casinha-pendingbox';   // deep-link do QR pendente (sessionStorage; sobrevive ao reload do SW)
+const PENDING_ACT_KEY = 'catalogo-casinha-pendingact';   // atalho do PWA pendente (#new=item / #scan), mesmo padrão
+const VIEWMODE_KEY = 'catalogo-casinha-viewmode-v1';     // lista ou grade na busca (LOCAL)
 
 /* Tamanhos físicos do item (P/M/G) — usados pela sugestão de caixa. */
 const SIZES = [
@@ -55,6 +57,17 @@ function catByName(nome) { return getCatConfig().find((c) => c.nome === nome) ||
 function grupoDaCategoria(nome) { const c = catByName(nome); return (c && c.grupo) || nome || 'Outros'; }
 /* todos os grupos distintos, na ordem da config */
 function getGrupos() { const seen = {}, out = []; for (const c of getCatConfig()) { const g = c.grupo || c.nome; if (g && !seen[g]) { seen[g] = 1; out.push(g); } } return out; }
+
+/* Classe de cor estável p/ um grupo ('grp-0'…'grp-7'): hash do nome normalizado.
+   Determinística → a mesma cor em todos os aparelhos, inclusive p/ grupos criados
+   pelo usuário. Pura → testada em logic.html. */
+function groupClass(name) {
+  const s = normalizeText(name);
+  if (!s) return '';
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return 'grp-' + (h % 8);
+}
 
 /* ---------------- Estado ---------------- */
 function emptyState() {
@@ -200,7 +213,12 @@ const ICONS = {
   edit: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/>',
   'map-pin': '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
   'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
-  'rotate-ccw': '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>'
+  'rotate-ccw': '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  'share-2': '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>',
+  zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  grid: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+  list: '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>',
+  'shopping-cart': '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>'
 };
 function icon(name, size) {
   const p = ICONS[name]; if (!p) return '';

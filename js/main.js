@@ -40,30 +40,46 @@ function setupTheme() {
 function pendingBox() { try { return sessionStorage.getItem(PENDING_BOX_KEY) || ''; } catch (e) { return ''; } }
 function setPendingBox(id) { try { id ? sessionStorage.setItem(PENDING_BOX_KEY, id) : sessionStorage.removeItem(PENDING_BOX_KEY); } catch (e) {} }
 
-/* Síncrono, chamado no INÍCIO do init (antes do SW poder recarregar): captura o id
-   do hash, guarda em sessionStorage e limpa a URL. */
+/* Ação pendente dos atalhos do PWA (#new=item / #scan), mesmo padrão do #box=. */
+function pendingAct() { try { return sessionStorage.getItem(PENDING_ACT_KEY) || ''; } catch (e) { return ''; } }
+function setPendingAct(a) { try { a ? sessionStorage.setItem(PENDING_ACT_KEY, a) : sessionStorage.removeItem(PENDING_ACT_KEY); } catch (e) {} }
+
+/* Síncrono, chamado no INÍCIO do init (antes do SW poder recarregar): captura o
+   alvo do hash (#box=<id>, #new=item ou #scan), guarda em sessionStorage e limpa a URL. */
 function captureDeepLink() {
-  const m = /^#box=(.+)$/.exec(location.hash || '');
-  if (!m) return;
-  setPendingBox(decodeURIComponent(m[1]));
+  const h = location.hash || '';
+  const m = /^#box=(.+)$/.exec(h);
+  if (m) setPendingBox(decodeURIComponent(m[1]));
+  else if (h === '#new=item' || h === '#scan') setPendingAct(h.slice(1));
+  else return;
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
 }
 
 /* Chamado APÓS loadState(): abre a caixa pendente (se existir). Não remove a chave
    aqui — deixa sobreviver a um eventual reload do SW; limpa só ao fechar a caixa
-   (closeBoxDetail) ou se o id não corresponder a nenhuma caixa. */
+   (closeBoxDetail) ou se o id não corresponder a nenhuma caixa. Ações dos atalhos
+   do PWA são consumidas de uma vez (abrir modal / scanner não precisa sobreviver). */
 function consumeDeepLink() {
   const id = pendingBox();
-  if (!id) return;
-  if (boxById(id)) { showView('caixas'); openBoxDetail(id); }
-  else setPendingBox('');
+  if (id) {
+    if (boxById(id)) { showView('caixas'); openBoxDetail(id); }
+    else setPendingBox('');
+    return;
+  }
+  const act = pendingAct();
+  if (!act) return;
+  setPendingAct('');
+  if (act === 'new=item') openItemModal(null);
+  else if (act === 'scan') { showView('caixas'); if (scanSupported()) startScan(); }
 }
 
-/* Navegação por hash já com o app aberto (#box=<id>). */
+/* Navegação por hash já com o app aberto (#box=<id>, #new=item, #scan). */
 function handleHash() {
-  const m = /^#box=(.+)$/.exec(location.hash || '');
-  if (!m) return;
-  setPendingBox(decodeURIComponent(m[1]));
+  const h = location.hash || '';
+  const m = /^#box=(.+)$/.exec(h);
+  if (m) setPendingBox(decodeURIComponent(m[1]));
+  else if (h === '#new=item' || h === '#scan') setPendingAct(h.slice(1));
+  else return;
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
   consumeDeepLink();
 }
